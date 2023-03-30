@@ -4,12 +4,15 @@
 
 #include "JointInterface.h"
 #include "QPSolver.h"
+#include "PositionControl.h"
 
 class GazeControl
 {
     private:
         JointInterface* jointInterface;
         QPSolver* solver;
+        PositionControl* positionControl;
+
 
         iDynTree::KinDynComputations computer;
 

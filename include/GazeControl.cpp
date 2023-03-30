@@ -12,6 +12,7 @@ GazeControl::GazeControl(const std::string &pathToURDF,
 {
     this->jointInterface = new JointInterface(jointList, portList);
     this->solver = new QPSolver();
+	// this->positionControl = new PositionControl()
 
     iDynTree::ModelLoader loader;
 	
