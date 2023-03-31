@@ -1,5 +1,5 @@
 # ergocub-gaze-control
-Control classes for 2-handed control of the iCub robot
+Controller for ergoCub gaze
 
 # Prerequisites
 This repository utilizes:
