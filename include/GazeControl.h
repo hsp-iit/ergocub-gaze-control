@@ -23,14 +23,12 @@ class GazeControl: public yarp::os::PeriodicThread
 
         // Main Control Loop
         Eigen::VectorXd setPoint =
-		(Eigen::VectorXd(17) << 0.0,  0.0,  0.00,
-                                       -0.2,  0.4,  0.00,  0.8, -0.4,  0.0,  0.0,
-                                       -0.2,  0.4,  0.00,  0.8, -0.4,  0.0,  0.0).finished(); 
+		(Eigen::VectorXd(4) << 0.0,  0.0,  0.00, 0.00).finished(); 
         void run();    
 
         // PositionControl
         bool compute_joint_limits(double &lower, double &upper, const unsigned int &jointNum);
-		Eigen::Matrix<double,12,1> track_cartesian_trajectory(const double &time);
+		Eigen::Matrix<double,6,1> track_cartesian_trajectory(const double &time);
 		Eigen::VectorXd track_joint_trajectory(const double &time);
         Eigen::VectorXd qRef;                                                               // Reference joint position to send to motors
         bool threadInit();
