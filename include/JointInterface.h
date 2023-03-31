@@ -27,14 +27,12 @@ class JointInterface
 		bool send_joint_commands(const Eigen::VectorXd &commands);
 		
 		void close();                                                                       // Close the device drivers & stop the robot
+				std::vector<std::array<double,2>> positionLimit;                            // Upper and lower bounds on joint position
+		std::vector<double>               velocityLimit;                                    // Absolute joint velocity
 		
         protected:
      
 		unsigned int numJoints;                                                             // Number of joints being controlled
-		
-		std::vector<std::array<double,2>> positionLimit;                                    // Upper and lower bounds on joint position
-		
-		std::vector<double>               velocityLimit;                                    // Absolute joint velocity
 		
 	private:
 		
