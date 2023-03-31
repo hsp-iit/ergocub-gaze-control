@@ -37,8 +37,10 @@ GazeControl::GazeControl(const std::string &pathToURDF,
 		}
 		else
         {
-			while(true)
-            	this->update_state(); //TODO remove
+			// Resize vectors and matrices based on number of joints
+			this->jointTrajectory.resize(this->numJoints);                              // Trajectory for joint motion control		
+			if(not update_state()) throw std::runtime_error(message + "Unable to read initial joint state from the encoders.");
+			std::cout << "[INFO] [ICUB BASE] Successfully created iDynTree model from " << pathToURDF << ".\n";
         }
     }
 };
@@ -111,9 +113,9 @@ Eigen::Isometry3d GazeControl::iDynTree_to_Eigen(const iDynTree::Transform &T)
 }
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////
- //                                Move each hand to a desired pose                                //
+ //                                Move the gaze to the desired pose                               //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-bool GazeControl::move_to_pose(const Eigen::Isometry3d &leftPose,
+bool GazeControl::move_to_pose(const Eigen::Isometry3d &cameraPose,
                                const double &time)
 {
 	// Put them in to std::vector objects and pass onward
@@ -124,8 +126,8 @@ bool GazeControl::move_to_pose(const Eigen::Isometry3d &leftPose,
 }
 
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-//                          Move both hands through multiple poses                               //
+  ///////////////////////////////////////////////////////////////////////////////////////////////////
+ //                             Move the gaze through multiple poses                              //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 bool GazeControl::move_to_poses(const std::vector<Eigen::Isometry3d> &camera,
                                 const std::vector<double> &times)
@@ -138,15 +140,15 @@ bool GazeControl::move_to_poses(const std::vector<Eigen::Isometry3d> &camera,
 	t.insert(t.end(),times.begin(),times.end());                                                // Add on the rest of the times
 	
 	// Set up the waypoints for each hand
-	std::vector<Eigen::Isometry3d> cameraPoints; cameraPoints.push_back(this->cameraPose);            // First waypoint is current pose
+	std::vector<Eigen::Isometry3d> cameraPoints; cameraPoints.push_back(this->cameraPose);      // First waypoint is current pose
 	cameraPoints.insert(cameraPoints.end(),camera.begin(),camera.end());
 	
 	try
 	{
-		this->cameraTrajectory  = CartesianTrajectory(cameraPoints,t);                       // Assign new trajectory for camera hand
-		this->endTime = times.back();                                                       // For checking when done
+		this->cameraTrajectory  = CartesianTrajectory(cameraPoints,t);                          // Assign new trajectory for camera hand
+		this->endTime = times.back();                                                           // For checking when done
 		
-		start();                                                                              // Go to threadInit();
+		start();                                                                                // Go to threadInit();
 		
 		return true;
 	}
@@ -232,6 +234,7 @@ bool GazeControl::set_joint_gains(const double &proportional, const double &deri
 void GazeControl::run()
 {
 	update_state();                                                                             // Update kinematics & dynamics for new control loop
+	std::cout << "Corri corri" << std::endl;
 	
 	double elapsedTime = yarp::os::Time::now() - this->startTime;                               // Time since activation of control loop
 	
@@ -275,7 +278,7 @@ void GazeControl::run()
 				
 		try // to solve the joint motion
 		{
-			dq = this->solver->least_squares(redundantTask,                                           // Redundant task,
+			dq = this->solver->least_squares(redundantTask,                                 // Redundant task,
 		                           this->M,                                                 // Weight the joint motion by the inertia,
 		                           dx,                                                      // Constraint vector
 		                           this->J,                                                 // Constraint matrix
@@ -331,22 +334,22 @@ bool GazeControl::compute_joint_limits(double &lower, double &upper, const unsig
   ////////////////////////////////////////////////////////////////////////////////////////////////////
  //                        Solve a discrete time step for Cartesian control                        //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-Eigen::Matrix<double,12,1> GazeControl::track_cartesian_trajectory(const double &time)
+Eigen::Matrix<double,6,1> GazeControl::track_cartesian_trajectory(const double &time)
 {
 	// NOTE TO FUTURE SELF:
 	// There are no checks here to see if the trajectory is queried correctly.
 	// This could cause problems later
 	
 	// Variables used in this scope
-	Eigen::Matrix<double,12,1> dx; dx.setZero();                                                // Value to be returned
+	Eigen::Matrix<double,6,1> dx; dx.setZero();                                                // Value to be returned
 	Eigen::Isometry3d pose;                                                                     // Desired pose
 	Eigen::Matrix<double,6,1> vel, acc;                                                         // Desired velocity & acceleration
 	
-	this->cameraTrajectory.get_state(pose,vel,acc,time);                                  // Desired state for the left hand
-	dx.head(6) = this->dt*vel + this->K*pose_error(pose,this->cameraPose);                // Feedforward + feedback on the left hand
+	this->cameraTrajectory.get_state(pose,vel,acc,time);                                        // Desired state for the left hand
+	dx.head(6) = this->dt*vel + this->K*pose_error(pose,this->cameraPose);                      // Feedforward + feedback on the left hand
 
-	// this->rightTrajectory.get_state(pose,vel,acc,time);                                 // Desired state for the right hand
-	// dx.tail(6) = this->dt*vel + this->K*pose_error(pose,this->rightPose);               // Feedforward + feedback on the right hand
+	// this->rightTrajectory.get_state(pose,vel,acc,time);                                      // Desired state for the right hand
+	// dx.tail(6) = this->dt*vel + this->K*pose_error(pose,this->rightPose);                    // Feedforward + feedback on the right hand
 
 	return dx;
 }
