@@ -80,7 +80,7 @@ int main(int argc, char *argv[])
 			command = input.toString();                                                 // Convert to a string	
 
 			if(command == "look_at"){
-				gazeControl.move_to_pose()
+				// gazeControl.move_to_pose()
 			}
 
 			port.reply(output);
