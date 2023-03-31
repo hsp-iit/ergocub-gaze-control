@@ -72,16 +72,20 @@ int main(int argc, char *argv[])
 		
 		// Run the control loop
 		bool active = true;
+
+		command = "look_at";
 		
 		while(active)
 		{
  			output.clear();                                                             // Clear any previous information
-			port.read(input,true);                                                      // Get the input from the /command port
-			command = input.toString();                                                 // Convert to a string	
+			// port.read(input,true);                                                      // Get the input from the /command port
 
 			if(command == "look_at"){
-				// gazeControl.move_to_pose()
+				// 
+				gazeControl.move_to_pose(Eigen::Isometry3d(Eigen::AngleAxisd(20,Eigen::Vector3d::UnitX())), 2.0);
 			}
+
+			command = "do_nothing";
 
 			port.reply(output);
 		}
