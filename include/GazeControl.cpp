@@ -3,16 +3,16 @@
 GazeControl::GazeControl(const std::string &pathToURDF,
                          const std::vector<std::string> &jointList,
                          const std::vector<std::string> &portList) : 
-						 numJoints(jointList.size()),
-						 q(Eigen::VectorXd::Zero(this->numJoints)),
-						 qdot(Eigen::VectorXd::Zero(this->numJoints)),
+						 yarp::os::PeriodicThread(0.01),                                                 // Thread running at 100Hz
+						 numJoints(jointList.size()),                                                    // Set number of joints
+						 q(Eigen::VectorXd::Zero(this->numJoints)),                                      // Set the size of the position vector
+						 qdot(Eigen::VectorXd::Zero(this->numJoints)),                                   // Set the size of the velocity vector
 						 J(Eigen::MatrixXd::Zero(6,this->numJoints)),                                    // Set the size of the Jacobian matrix
 						M(Eigen::MatrixXd::Zero(this->numJoints,this->numJoints)),                       // Set the size of the inertia matrix
 						invM(Eigen::MatrixXd::Zero(this->numJoints,this->numJoints))                     // Set the size of the inverse inertia
 {
     this->jointInterface = new JointInterface(jointList, portList);
     this->solver = new QPSolver();
-	// this->positionControl = new PositionControl()
 
     iDynTree::ModelLoader loader;
 	
@@ -113,25 +113,22 @@ Eigen::Isometry3d GazeControl::iDynTree_to_Eigen(const iDynTree::Transform &T)
   ////////////////////////////////////////////////////////////////////////////////////////////////////
  //                                Move each hand to a desired pose                                //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-bool iCubBase::move_to_pose(const Eigen::Isometry3d &leftPose,
-                            const Eigen::Isometry3d &rightPose,
-                            const double &time)
+bool GazeControl::move_to_pose(const Eigen::Isometry3d &leftPose,
+                               const double &time)
 {
 	// Put them in to std::vector objects and pass onward
-	std::vector<Eigen::Isometry3d> leftPoses(1,leftPose);
-	std::vector<Eigen::Isometry3d> rightPoses(1,rightPose);
+	std::vector<Eigen::Isometry3d> cameraPoses(1,cameraPose);
 	std::vector<double> times(1,time);
 	
-	return move_to_poses(leftPoses,rightPoses,times);                                           // Call full function
+	return move_to_poses(cameraPoses, times);                                           // Call full function
 }
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 //                          Move both hands through multiple poses                               //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-bool iCubBase::move_to_poses(const std::vector<Eigen::Isometry3d> &left,
-                             const std::vector<Eigen::Isometry3d> &right,
-                             const std::vector<double> &times)
+bool GazeControl::move_to_poses(const std::vector<Eigen::Isometry3d> &camera,
+                                const std::vector<double> &times)
 {
 	if(isRunning()) stop();                                                                     // Stop any control threads that are running
 	this->controlSpace = cartesian;                                                             // Switch to Cartesian control mode
@@ -141,20 +138,15 @@ bool iCubBase::move_to_poses(const std::vector<Eigen::Isometry3d> &left,
 	t.insert(t.end(),times.begin(),times.end());                                                // Add on the rest of the times
 	
 	// Set up the waypoints for each hand
-	std::vector<Eigen::Isometry3d> leftPoints; leftPoints.push_back(this->leftPose);            // First waypoint is current pose
-	leftPoints.insert(leftPoints.end(),left.begin(),left.end());
-	
-	std::vector<Eigen::Isometry3d> rightPoints; rightPoints.push_back(this->rightPose);
-	rightPoints.insert(rightPoints.end(), right.begin(), right.end());
+	std::vector<Eigen::Isometry3d> cameraPoints; cameraPoints.push_back(this->cameraPose);            // First waypoint is current pose
+	cameraPoints.insert(cameraPoints.end(),camera.begin(),camera.end());
 	
 	try
 	{
-		this->leftTrajectory  = CartesianTrajectory(leftPoints,t);                          // Assign new trajectory for left hand
-		this->rightTrajectory = CartesianTrajectory(rightPoints,t);                         // Assign new trajectory for right hand
-		
+		this->cameraTrajectory  = CartesianTrajectory(cameraPoints,t);                       // Assign new trajectory for camera hand
 		this->endTime = times.back();                                                       // For checking when done
 		
-		run();                                                                              // Go to threadInit();
+		start();                                                                              // Go to threadInit();
 		
 		return true;
 	}
@@ -169,11 +161,75 @@ bool iCubBase::move_to_poses(const std::vector<Eigen::Isometry3d> &left,
 	}
 }
 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+ //                         Get the error between a desired and actual pose                        //
+////////////////////////////////////////////////////////////////////////////////////////////////////
+Eigen::Matrix<double,6,1> GazeControl::pose_error(const Eigen::Isometry3d &desired,
+                                               const Eigen::Isometry3d &actual)
+{
+	Eigen::Matrix<double,6,1> error;                                                            // Value to be computed
+	
+	error.head(3) = desired.translation() - actual.translation();                               // Position / translation error
+	
+	Eigen::Matrix<double,3,3> R = desired.rotation()*actual.rotation().inverse();               // Rotation error as SO(3)
+	
+	// "Unskew" the rotation error
+	error(3) = R(2,1);
+	error(4) = R(0,2);
+	error(5) = R(1,0);
+	
+	return error;
+}
+ 
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+ //                                 Set the Cartesian gains                                        //
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool GazeControl::set_cartesian_gains(const double &proportional, const double &derivative)
+{
+	if(proportional < 0 or derivative < 0)
+	{
+		std::cerr << "[ERROR] [ICUB BASE] set_cartesian_gains(): "
+		          << "Gains must be positive, but your inputs were " << proportional
+		          << " and " << derivative << ".\n";
+		
+		return false;
+	}
+	else
+	{
+		this->K = proportional*this->gainTemplate;
+		this->D = derivative*this->gainTemplate;
+
+		return true;
+	}
+}
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+ //                                    Set the joint gains                                         //
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool GazeControl::set_joint_gains(const double &proportional, const double &derivative)
+{
+	if(proportional < 0 or derivative < 0)
+	{
+		std::cerr << "[ERROR] [ICUB BASE] set_joint_gains(): "
+		          << "Gains must be positive, but your inputs were " << proportional
+		          << " and " << derivative << ".\n";
+		          
+		return false;
+	}
+	else
+	{
+		this->kp = proportional;
+		this->kd = derivative;
+		
+		return true;
+	}
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                     MAIN CONTROL LOOP                                          //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void ergoCub::run()
+void GazeControl::run()
 {
 	update_state();                                                                             // Update kinematics & dynamics for new control loop
 	
@@ -183,27 +239,29 @@ void ergoCub::run()
 	
 	if(this->controlSpace == joint)
 	{
-		Eigen::VectorXd qd(this->n);
+		Eigen::VectorXd qd(this->numJoints);
 		
-		for(int i = 0; i < this->n; i++)
+		for(int i = 0; i < this->numJoints; i++)
 		{
 			qd(i) = this->jointTrajectory[i].evaluatePoint(elapsedTime);
 			
-			if(qd(i) < this->pLim[i][0]) qd(i) = this->pLim[i][0] + 0.001;              // Just above the lower limit
-			if(qd(i) > this->pLim[i][1]) qd(i) = this->pLim[i][1] - 0.001;              // Just below the upper limit
+			if(qd(i) < this->jointInterface->positionLimit[i][0])
+				qd(i) = this->jointInterface->positionLimit[i][0] + 0.001;              // Just above the lower limit
+			if(qd(i) > this->jointInterface->positionLimit[i][1])
+				qd(i) = this->jointInterface->positionLimit[i][1] - 0.001;              // Just below the upper limit
 		}
 		
 		this->qRef = qd;                                                                    // Reference position for joint motors
 	}
 	else
 	{
-		Eigen::VectorXd dq(this->n);                                                        // We want to solve this
+		Eigen::VectorXd dq(this->numJoints);                                                        // We want to solve this
 		Eigen::VectorXd redundantTask = 0.01*(this->setPoint - this->q);
-		Eigen::VectorXd q0(this->n);
+		Eigen::VectorXd q0(this->numJoints);
 		
 		// Calculate instantaneous joint limits
-		Eigen::VectorXd lowerBound(this->n), upperBound(this->n);
-		for(int i = 0; i < this->n; i++)
+		Eigen::VectorXd lowerBound(this->numJoints), upperBound(this->numJoints);
+		for(int i = 0; i < this->numJoints; i++)
 		{
 			double lower, upper;
 			compute_joint_limits(lower,upper,i);
@@ -217,7 +275,7 @@ void ergoCub::run()
 				
 		try // to solve the joint motion
 		{
-			dq = least_squares(redundantTask,                                           // Redundant task,
+			dq = this->solver->least_squares(redundantTask,                                           // Redundant task,
 		                           this->M,                                                 // Weight the joint motion by the inertia,
 		                           dx,                                                      // Constraint vector
 		                           this->J,                                                 // Constraint matrix
@@ -233,5 +291,105 @@ void ergoCub::run()
 		this->qRef += dq;
 	}
 
-	for(int i = 0; i < this->n; i++) send_joint_command(i,this->qRef[i]);
+	this->jointInterface->send_joint_commands(this->qRef);
+}
+
+
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+ //                             Compute instantenous position limits                               //
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool GazeControl::compute_joint_limits(double &lower, double &upper, const unsigned int &jointNum)
+{
+	// NOTE TO FUTURE SELF: Need to compute a limit on the step size dq 
+	
+	if(jointNum > this->numJoints)
+	{
+		std::cerr << "[ERROR] [POSITION CONTROL] compute_joint_limits(): "
+		          << "Range of joint indices is 0 to " << this->numJoints - 1 << ", "
+		          << "but you called for " << jointNum << ".\n";
+
+		return false;
+	}
+	else
+	{
+		lower = this->jointInterface->positionLimit[jointNum][0] - this->qRef[jointNum];
+		upper = this->jointInterface->positionLimit[jointNum][1] - this->qRef[jointNum];
+		
+		if(lower >= upper)
+		{
+			std::cerr << "[ERROR] [POSITION CONTROL] compute_joint_limits(): "
+				  << "Lower limit " << lower << " is greater than upper limit " << upper << ". "
+				  << "How did that happen???\n";
+			
+			return false;
+		}
+		else	return true;
+	}
+}
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+ //                        Solve a discrete time step for Cartesian control                        //
+////////////////////////////////////////////////////////////////////////////////////////////////////
+Eigen::Matrix<double,12,1> GazeControl::track_cartesian_trajectory(const double &time)
+{
+	// NOTE TO FUTURE SELF:
+	// There are no checks here to see if the trajectory is queried correctly.
+	// This could cause problems later
+	
+	// Variables used in this scope
+	Eigen::Matrix<double,12,1> dx; dx.setZero();                                                // Value to be returned
+	Eigen::Isometry3d pose;                                                                     // Desired pose
+	Eigen::Matrix<double,6,1> vel, acc;                                                         // Desired velocity & acceleration
+	
+	this->cameraTrajectory.get_state(pose,vel,acc,time);                                  // Desired state for the left hand
+	dx.head(6) = this->dt*vel + this->K*pose_error(pose,this->cameraPose);                // Feedforward + feedback on the left hand
+
+	// this->rightTrajectory.get_state(pose,vel,acc,time);                                 // Desired state for the right hand
+	// dx.tail(6) = this->dt*vel + this->K*pose_error(pose,this->rightPose);               // Feedforward + feedback on the right hand
+
+	return dx;
+}
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+ //                     Solve the step size to track the joint trajectory                          //
+////////////////////////////////////////////////////////////////////////////////////////////////////
+Eigen::VectorXd GazeControl::track_joint_trajectory(const double &time)
+{
+	Eigen::VectorXd dq(this->numJoints); dq.setZero();                                          // Value to be returned
+	
+	for(int i = 0; i < this->numJoints; i++) dq[i] = this->jointTrajectory[i].evaluatePoint(time) - this->q[i];
+	
+	return dq;
+}
+
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+ //                                 Initialise the control thread                                  //
+////////////////////////////////////////////////////////////////////////////////////////////////////
+bool GazeControl::threadInit()
+{
+	if(isRunning())
+	{
+		std::cout << "[ERROR] [POSITION CONTROL] threadInit(): "
+		          << "A control thread is still running!\n";
+		return false;
+	}
+	else
+	{
+		// Reset values
+		this->solver->clear_last_solution();                                                 // In the QP solver
+		this->isFinished = false;                                                           // New action started
+		this->qRef = this->q;                                                               // Start from current joint position
+		this->startTime = yarp::os::Time::now();                                            // Used to time the control loop
+		return true;                                                                        // jumps immediately to run()
+	}
+}
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////////
+ //                             Executed after a control thread is stopped                         //
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void GazeControl::threadRelease()
+{
+	this->jointInterface->send_joint_commands(this->q);                                                               // Maintain current joint positions
 }
