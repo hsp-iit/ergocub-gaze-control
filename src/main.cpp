@@ -75,18 +75,25 @@ int main(int argc, char *argv[])
 		bool active = true;
 
 		command = "look_at";
-		
+
 		while(active)
 		{
  			output.clear();                                                             // Clear any previous information
 			// port.read(input,true);                                                      // Get the input from the /command port
 
-			if(command == "look_at"){
+			// if(command == "look_at"){
 				// 
-				gazeControl.move_to_pose(Eigen::Isometry3d(Eigen::AngleAxisd(20,Eigen::Vector3d::UnitX())), 2.0);
-			}
+				//auto translation = Eigen::Translation3d(0.076051, -0.011498, 1.523079 - 0.9);  // 0.076051, -0.011498, 1.523079
+			Eigen::Isometry3d test;
+			test = Eigen::Translation<double, 3>(Eigen::Vector3d(0.074927, -0.011469, 1.523281 - 0.9));
+			test.rotate(Eigen::AngleAxisd(-M_PI / 2.0, Eigen::Vector3d::UnitX()) * 
+						Eigen::AngleAxisd(M_PI / 2.0, Eigen::Vector3d::UnitY()) * 
+						Eigen::AngleAxisd(-45.0 * M_PI / 180.0, Eigen::Vector3d::UnitY()));
+			gazeControl.move_to_pose(test, shortTime);
+			// }
 
-			command = "do_nothing";
+			yarp::os::Time::delay(shortTime);
+			// exit(0);
 
 			port.reply(output);
 		}
