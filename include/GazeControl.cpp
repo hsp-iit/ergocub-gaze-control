@@ -39,7 +39,7 @@ GazeControl::GazeControl(const std::string &pathToURDF,
         {
 			// Resize vectors and matrices based on number of joints
 			this->jointTrajectory.resize(this->numJoints);                              // Trajectory for joint motion control		
-			if(not update_state()) throw std::runtime_error(message + "Unable to read initial joint state from the encoders.");
+			// if(not update_state()) throw std::runtime_error(message + "Unable to read initial joint state from the encoders.");
 			std::cout << "[INFO] [ICUB BASE] Successfully created iDynTree model from " << pathToURDF << ".\n";
         }
     }
