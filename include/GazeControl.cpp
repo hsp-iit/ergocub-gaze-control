@@ -1,4 +1,5 @@
 #include "GazeControl.h"
+#include <iomanip>
 
 GazeControl::GazeControl(const std::string &pathToURDF,
                          const std::vector<std::string> &jointList,
@@ -169,19 +170,35 @@ bool GazeControl::move_to_pose(const Eigen::Isometry3d& desiredCameraPose,
  //                         Get the error between a desired and actual pose                        //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 Eigen::Matrix<double,6,1> GazeControl::pose_error(const Eigen::Isometry3d &desired,
-                                               const Eigen::Isometry3d &actual)
+                                               	  const Eigen::Isometry3d &actual)
 {
 	Eigen::Matrix<double,6,1> error;                                                            // Value to be computed
 	
 	error.head(3) = desired.translation() - actual.translation();                               // Position / translation error
 	
-	Eigen::Matrix<double,3,3> R = desired.rotation()*actual.rotation().inverse();               // Rotation error as SO(3)
+	Eigen::Matrix<double,3,3> R_err = desired.rotation()*actual.rotation().inverse();               // Rotation error as SO(3)
+	Eigen::AngleAxisd R_err_aa = Eigen::AngleAxisd(R_err);
+	error.tail<3>() = R_err_aa.axis() * R_err_aa.angle();
 	
 	// "Unskew" the rotation error
-	error(3) = R(2,1);
-	error(4) = R(0,2);
-	error(5) = R(1,0);
-	
+	//error(3) = R(2,1);
+	//error(4) = R(0,2);
+	//error(5) = R(1,0);
+
+	std::cout << "frame position" << std::endl;
+	std::cout << actual.translation() << std::endl;
+	std::cout << "frame rotation" << std::endl;
+	std::cout << actual.rotation() << std::endl;
+
+	std::cout << "des frame position" << std::endl;
+	std::cout << desired.translation() << std::endl;
+	std::cout << "des frame rotation" << std::endl;
+	std::cout << desired.rotation() << std::endl;
+
+	std::cout << "error" << std::endl;
+	std::cout << error.transpose() << std::endl;
+
+
 	return error;
 }
  
@@ -289,6 +306,7 @@ void GazeControl::run()
 			std::cout << error_message << std::endl;
 			dq.setZero();
 		}
+		std::cout << std::fixed << std::setprecision(10) << dq.transpose() << std::endl;
 		this->qRef += dq;
 	}
 
@@ -343,8 +361,8 @@ Eigen::Matrix<double,6,1> GazeControl::track_cartesian_trajectory(const double &
 	Eigen::Isometry3d pose;                                                                     // Desired pose
 	Eigen::Matrix<double,6,1> vel, acc;                                                         // Desired velocity & acceleration
 	
-	this->cameraTrajectory.get_state(pose,vel,acc,time);                                        // Desired state for the left hand
-	dx.head(6) = this->dt*vel + this->K*pose_error(pose,this->cameraPose);                      // Feedforward + feedback on the left hand
+	//this->cameraTrajectory.get_state(pose,vel,acc,time);                                        // Desired state for the left hand
+	dx.head(6) = this->K*pose_error(this->desiredCameraPose,this->cameraPose);                      // Feedforward + feedback on the left hand
 
 	// this->rightTrajectory.get_state(pose,vel,acc,time);                                      // Desired state for the right hand
 	// dx.tail(6) = this->dt*vel + this->K*pose_error(pose,this->rightPose);                    // Feedforward + feedback on the right hand
