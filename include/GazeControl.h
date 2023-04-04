@@ -69,6 +69,9 @@ class GazeControl: public yarp::os::PeriodicThread
                     const std::vector<std::string> &portList);
 
 		bool update_state();
+
+        bool set_cartesian_gains(const double &proportional);
+        bool set_joint_gains(const double &proportional, const double &derivative);
         
         // Public Controller Interface
         // bool move_to_pose(const Eigen::Isometry3d &cameraPose,

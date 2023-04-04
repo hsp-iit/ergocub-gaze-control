@@ -188,21 +188,17 @@ Eigen::Matrix<double,6,1> GazeControl::pose_error(const Eigen::Isometry3d &desir
   ////////////////////////////////////////////////////////////////////////////////////////////////////
  //                                 Set the Cartesian gains                                        //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-bool GazeControl::set_cartesian_gains(const double &proportional, const double &derivative)
+bool GazeControl::set_cartesian_gains(const double &proportional)
 {
-	if(proportional < 0 or derivative < 0)
+	if(proportional < 0)
 	{
 		std::cerr << "[ERROR] [ICUB BASE] set_cartesian_gains(): "
-		          << "Gains must be positive, but your inputs were " << proportional
-		          << " and " << derivative << ".\n";
+		          << "Gains must be positive, but your inputs was " << proportional << ".\n";
 		
 		return false;
 	}
-	else
-	{
-		this->K = proportional*this->gainTemplate;
-		this->D = derivative*this->gainTemplate;
-
+	else{
+		this->K = proportional * Eigen::MatrixXd::Identity(6, 6);
 		return true;
 	}
 }

@@ -62,6 +62,7 @@ int main(int argc, char *argv[])
 		// 
 		yarp::os::Network yarp;                                                             // First connect to the network
 		GazeControl gazeControl(pathToURDF, jointList, portList);  
+		gazeControl.set_cartesian_gains(0.01);
 		
 		// Configure communication across the yarp network
 		yarp::os::RpcServer port;                                                           // Create a port for sending / receiving info
