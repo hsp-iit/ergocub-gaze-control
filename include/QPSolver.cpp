@@ -222,6 +222,9 @@ Eigen::VectorXd QPSolver::least_squares(const Eigen::VectorXd &y,
                                         const Eigen::VectorXd &xMax,
                                         const Eigen::VectorXd &x0)
 {
+	Eigen::MatrixXd pinv = A.completeOrthogonalDecomposition().pseudoInverse();
+	return pinv * y;
+	
 	if(W.rows() != W.cols())
 	{	
 		std::string message = "[ERROR] [QP SOLVER] least_squares(): "
