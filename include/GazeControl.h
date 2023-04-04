@@ -71,10 +71,10 @@ class GazeControl: public yarp::os::PeriodicThread
 		bool update_state();
         
         // Public Controller Interface
-        bool move_to_pose(const Eigen::Isometry3d &cameraPose,
-		                  const double &time);                                              // Move the gaze 
+        // bool move_to_pose(const Eigen::Isometry3d &cameraPose,
+		//                   const double &time);                                              // Move the gaze 
 		                  
-		bool move_to_poses(const std::vector<Eigen::Isometry3d> &cameraPoses,
-		                   const std::vector<double> &times);                        // Move the gaze through several points
+		bool move_to_pose(const Eigen::Isometry3d& desiredCameraPose,
+                          const double& duration);                        // Move the gaze through several points
 		                   
 };

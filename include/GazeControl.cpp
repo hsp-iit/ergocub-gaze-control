@@ -70,7 +70,7 @@ bool GazeControl::update_state()
 			// Get the Jacobian for the hands
 			Eigen::MatrixXd temp(6,6+this->numJoints);                                  // Temporary storage
 			
-			this->computer.getFrameFreeFloatingJacobian("realsense_rgb_frame",temp);    // Compute camera Jacobian
+			this->computer.getFrameFreeFloatingJacobian("realsense_rgb_frame",temp);    // Compute camera Jacobian "realsense_rgb_frame"
 			this->J.block(0,0,6,this->numJoints) = temp.block(0,6,6,this->numJoints);   // Remove floating base
 			
 			// Compute inertia matrix
@@ -80,7 +80,8 @@ bool GazeControl::update_state()
 			this->invM = this->M.partialPivLu().inverse();                              // We will need the inverse late
 			
 	// 		// Update camera pose
-			this->cameraPose  = iDynTree_to_Eigen(this->computer.getWorldTransform("realsense_rgb_frame"));
+			this->cameraPose  = iDynTree_to_Eigen(this->computer.getWorldTransform("realsense_rgb_frame"));  // realsense_rgb_frame
+			
 
 			return true;
 		}
@@ -115,38 +116,39 @@ Eigen::Isometry3d GazeControl::iDynTree_to_Eigen(const iDynTree::Transform &T)
   ////////////////////////////////////////////////////////////////////////////////////////////////////
  //                                Move the gaze to the desired pose                               //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-bool GazeControl::move_to_pose(const Eigen::Isometry3d &cameraPose,
-                               const double &time)
-{
-	// Put them in to std::vector objects and pass onward
-	std::vector<Eigen::Isometry3d> cameraPoses(1,cameraPose);
-	std::vector<double> times(1,time);
+// bool GazeControl::move_to_pose(const Eigen::Isometry3d &cameraPose,
+//                                const double &time)
+// {
+// 	// Put them in to std::vector objects and pass onward
+// 	std::vector<Eigen::Isometry3d> cameraPoses(1,cameraPose);
+// 	std::vector<double> times(1,time);
 	
-	return move_to_poses(cameraPoses, times);                                           // Call full function
-}
+// 	return move_to_poses(cameraPoses, times);                                           // Call full function
+// }
 
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////
  //                             Move the gaze through multiple poses                              //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-bool GazeControl::move_to_poses(const std::vector<Eigen::Isometry3d> &camera,
-                                const std::vector<double> &times)
+bool GazeControl::move_to_pose(const Eigen::Isometry3d& desiredCameraPose,
+                               const double& duration)
 {
 	if(isRunning()) stop();                                                                     // Stop any control threads that are running
 	this->controlSpace = cartesian;                                                             // Switch to Cartesian control mode
 	
 	// Set up the times for the trajectory
-	std::vector<double> t; t.push_back(0.0);                                                    // Start immediately
-	t.insert(t.end(),times.begin(),times.end());                                                // Add on the rest of the times
+	//std::vector<double> t; t.push_back(0.0);                                                    // Start immediately
+	//t.insert(t.end(),times.begin(),times.end());                                                // Add on the rest of the times
 	
 	// Set up the waypoints for each hand
-	std::vector<Eigen::Isometry3d> cameraPoints; cameraPoints.push_back(this->cameraPose);      // First waypoint is current pose
-	cameraPoints.insert(cameraPoints.end(),camera.begin(),camera.end());
+	//std::vector<Eigen::Isometry3d> cameraPoints; cameraPoints.push_back(this->cameraPose);      // First waypoint is current pose
+	//cameraPoints.insert(cameraPoints.end(),camera.begin(),camera.end());
 	
 	try
 	{
-		this->cameraTrajectory  = CartesianTrajectory(cameraPoints,t);                          // Assign new trajectory for camera hand
-		this->endTime = times.back();                                                           // For checking when done
+		//this->cameraTrajectory  = CartesianTrajectory(cameraPoints,t);                          // Assign new trajectory for camera hand
+		this->desiredCameraPose = desiredCameraPose;
+		this->endTime = duration;                                                           // For checking when done
 		
 		start();                                                                                // Go to threadInit();
 		
