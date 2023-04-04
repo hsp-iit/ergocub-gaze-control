@@ -306,7 +306,6 @@ void GazeControl::run()
 			std::cout << error_message << std::endl;
 			dq.setZero();
 		}
-		std::cout << std::fixed << std::setprecision(10) << dq.transpose() << std::endl;
 		this->qRef += dq;
 	}
 
