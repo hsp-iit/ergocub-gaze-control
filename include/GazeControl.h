@@ -47,8 +47,6 @@ class GazeControl: public yarp::os::PeriodicThread
 
         Eigen::Matrix<double,6,1> pose_error(const Eigen::Isometry3d &desired,
                                         const Eigen::Isometry3d &actual);                             
-		bool set_cartesian_gains(const double &proportional, const double &derivative);
-        bool set_joint_gains(const double &proportional, const double &derivative);
 		 
 		
         
@@ -58,10 +56,9 @@ class GazeControl: public yarp::os::PeriodicThread
 		Eigen::VectorXd q, qdot;                                                            // Joint positions and velocities
         Eigen::MatrixXd J, M, invM;                                                         // Jacobian, inertia and its inverse
         Eigen::Isometry3d cameraPose;                                                       // Camera pose
+        Eigen::Isometry3d desiredCameraPose;
         CartesianTrajectory cameraTrajectory;                                               // Trajectory generators for the hands
         Eigen::Matrix<double,6,6> K;                                                        // Feedback on pose error
-        Eigen::Matrix<double,6,6> D;                                                        // Feedback on velocity error
-		Eigen::Matrix<double,6,6> gainTemplate;                                             // Structure for the Cartesian gains
 
 	public:
 		GazeControl(const std::string &pathToURDF,
