@@ -232,7 +232,6 @@ bool GazeControl::set_joint_gains(const double &proportional, const double &deri
 void GazeControl::run()
 {
 	update_state();                                                                             // Update kinematics & dynamics for new control loop
-	std::cout << "Corri corri" << std::endl;
 	
 	double elapsedTime = yarp::os::Time::now() - this->startTime;                               // Time since activation of control loop
 	
@@ -273,13 +272,14 @@ void GazeControl::run()
 		}
 		
 		Eigen::VectorXd dx = track_cartesian_trajectory(elapsedTime);                       // Get the desired Cartesian motion
+		Eigen::MatrixXd W = Eigen::MatrixXd::Identity(this->J.rows(), this->J.rows()) * 0.1;
 				
 		try // to solve the joint motion
 		{
-			dq = this->solver->least_squares(redundantTask,                                 // Redundant task,
-		                           this->M,                                                 // Weight the joint motion by the inertia,
+			dq = this->solver->least_squares(
 		                           dx,                                                      // Constraint vector
 		                           this->J,                                                 // Constraint matrix
+								   W,
 		                           lowerBound,
 		                           upperBound,
 		                           q0);                                                     // Start point
