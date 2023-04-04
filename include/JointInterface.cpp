@@ -55,6 +55,8 @@ JointInterface::JointInterface(const std::vector<std::string> &jointList,
 				this->positionLimit[i][0] *= M_PI/180.0;
 				this->positionLimit[i][1] *= M_PI/180.0;
 				this->velocityLimit[i]    *= M_PI/180.0;
+
+				this->mode->setControlMode(i, VOCAB_CM_POSITION_DIRECT);
 			}
 			
 			// Finally, configure the encoders
