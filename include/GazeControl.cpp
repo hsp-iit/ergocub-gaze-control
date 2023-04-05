@@ -1,5 +1,7 @@
 #include "GazeControl.h"
 #include <iomanip>
+#include <chrono>
+#include <thread>
 
 GazeControl::GazeControl(const std::string &pathToURDF,
                          const std::vector<std::string> &jointList,
