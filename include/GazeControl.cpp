@@ -9,11 +9,20 @@ GazeControl::GazeControl(const std::string &pathToURDF,
 						 q(Eigen::VectorXd::Zero(this->numJoints)),                                      // Set the size of the position vector
 						 qdot(Eigen::VectorXd::Zero(this->numJoints)),                                   // Set the size of the velocity vector
 						 J(Eigen::MatrixXd::Zero(6,this->numJoints)),                                    // Set the size of the Jacobian matrix
-						M(Eigen::MatrixXd::Zero(this->numJoints,this->numJoints)),                       // Set the size of the inertia matrix
-						invM(Eigen::MatrixXd::Zero(this->numJoints,this->numJoints))                     // Set the size of the inverse inertia
+						 M(Eigen::MatrixXd::Zero(this->numJoints,this->numJoints)),                       // Set the size of the inertia matrix
+						 invM(Eigen::MatrixXd::Zero(this->numJoints,this->numJoints)),                    // Set the size of the inverse inertia
+						 sample_time(sample_time)
 {
     this->jointInterface = new JointInterface(jointList, portList);
     this->solver = new QPSolver();
+
+	// Redundant Task
+	redundantTask.resize(this->numJoints);
+	redundantTask.setZero();
+
+	// Debugging
+	yarp::os::Network yarp;
+	this->debugPort.open("/GazeController/debug:o");
 
     iDynTree::ModelLoader loader;
 	
@@ -44,6 +53,10 @@ GazeControl::GazeControl(const std::string &pathToURDF,
 			std::cout << "[INFO] [ICUB BASE] Successfully created iDynTree model from " << pathToURDF << ".\n";
         }
     }
+	while (not this->update_state()){
+		std::this_thread::sleep_for(std::chrono::milliseconds(int(sample_time * 1000.0)));
+	}
+	this->qRef = this->q;                                                               // Start from current joint position  
 };
 
 
@@ -72,7 +85,7 @@ bool GazeControl::update_state()
 			Eigen::MatrixXd temp(6,6+this->numJoints);                                  // Temporary storage
 			
 			this->computer.getFrameFreeFloatingJacobian("realsense_rgb_frame",temp);    // Compute camera Jacobian "realsense_rgb_frame"
-			this->J.block(0,0,6,this->numJoints) = temp.block(0,6,6,this->numJoints);   // Remove floating base
+			this->J = temp.bottomRightCorner(3,this->numJoints);   // Remove floating base
 			
 			// Compute inertia matrix
 			temp.resize(6+this->numJoints,6+this->numJoints);
@@ -131,28 +144,13 @@ Eigen::Isometry3d GazeControl::iDynTree_to_Eigen(const iDynTree::Transform &T)
   ///////////////////////////////////////////////////////////////////////////////////////////////////
  //                             Move the gaze through multiple poses                              //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-bool GazeControl::move_to_pose(const Eigen::Isometry3d& desiredCameraPose,
-                               const double& duration)
+bool GazeControl::set_gaze(const Eigen::Vector3d& desiredGaze)
 {
-	if(isRunning()) stop();                                                                     // Stop any control threads that are running
-	this->controlSpace = cartesian;                                                             // Switch to Cartesian control mode
-	
-	// Set up the times for the trajectory
-	//std::vector<double> t; t.push_back(0.0);                                                    // Start immediately
-	//t.insert(t.end(),times.begin(),times.end());                                                // Add on the rest of the times
-	
-	// Set up the waypoints for each hand
-	//std::vector<Eigen::Isometry3d> cameraPoints; cameraPoints.push_back(this->cameraPose);      // First waypoint is current pose
-	//cameraPoints.insert(cameraPoints.end(),camera.begin(),camera.end());
-	
+	this->controlSpace = cartesian;                                                     // Switch to Cartesian control mode
+
 	try
 	{
-		//this->cameraTrajectory  = CartesianTrajectory(cameraPoints,t);                          // Assign new trajectory for camera hand
-		this->desiredCameraPose = desiredCameraPose;
-		this->endTime = duration;                                                           // For checking when done
-		
-		start();                                                                                // Go to threadInit();
-		
+		this->desiredGaze = desiredGaze;
 		return true;
 	}
 	catch(std::exception &exception)
@@ -169,36 +167,33 @@ bool GazeControl::move_to_pose(const Eigen::Isometry3d& desiredCameraPose,
   ////////////////////////////////////////////////////////////////////////////////////////////////////
  //                         Get the error between a desired and actual pose                        //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-Eigen::Matrix<double,6,1> GazeControl::pose_error(const Eigen::Isometry3d &desired,
+Eigen::Matrix<double,3,1> GazeControl::pose_error(const Eigen::Vector3d &desired,
                                                	  const Eigen::Isometry3d &actual)
 {
-	Eigen::Matrix<double,6,1> error;                                                            // Value to be computed
+	Eigen::Matrix<double,3,1> error;                                                            // Value to be computed
+
+	Eigen::Vector3d desiredSight = this->desiredGaze - this->cameraPose.translation();
+	Eigen::Vector3d actualSight = this->cameraPose.rotation().col(2);
+
+	yarp::os::Bottle& debugOutput = this->debugPort.prepare();
+	debugOutput.clear();
+
+	// Create a 3D point
+	yarp::os::Bottle& point = debugOutput.addList();
+	point.addFloat64(desiredSight.normalized()(0));
+	point.addFloat64(desiredSight.normalized()(1));
+	point.addFloat64(desiredSight.normalized()(2));
+
+	// Create a vector
+	yarp::os::Bottle& vector = debugOutput.addList();
+	vector.addFloat64(actualSight(0));
+	vector.addFloat64(actualSight(1));
+	vector.addFloat64(actualSight(2));
+
+	this->debugPort.write();
+
+	error = actualSight.cross(desiredSight);
 	
-	error.head(3) = desired.translation() - actual.translation();                               // Position / translation error
-	
-	Eigen::Matrix<double,3,3> R_err = desired.rotation()*actual.rotation().inverse();               // Rotation error as SO(3)
-	Eigen::AngleAxisd R_err_aa = Eigen::AngleAxisd(R_err);
-	error.tail<3>() = R_err_aa.axis() * R_err_aa.angle();
-	
-	// "Unskew" the rotation error
-	//error(3) = R(2,1);
-	//error(4) = R(0,2);
-	//error(5) = R(1,0);
-
-	std::cout << "frame position" << std::endl;
-	std::cout << actual.translation() << std::endl;
-	std::cout << "frame rotation" << std::endl;
-	std::cout << actual.rotation() << std::endl;
-
-	std::cout << "des frame position" << std::endl;
-	std::cout << desired.translation() << std::endl;
-	std::cout << "des frame rotation" << std::endl;
-	std::cout << desired.rotation() << std::endl;
-
-	std::cout << "error" << std::endl;
-	std::cout << error.transpose() << std::endl;
-
-
 	return error;
 }
  
@@ -215,7 +210,7 @@ bool GazeControl::set_cartesian_gains(const double &proportional)
 		return false;
 	}
 	else{
-		this->K = proportional * Eigen::MatrixXd::Identity(6, 6);
+		this->K = proportional * Eigen::MatrixXd::Identity(3, 3);
 		return true;
 	}
 }
@@ -246,13 +241,13 @@ bool GazeControl::set_joint_gains(const double &proportional, const double &deri
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                     MAIN CONTROL LOOP                                          //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void GazeControl::run()
+void GazeControl::step()
 {
+
+	this->solver->clear_last_solution();                                                // In the QP solver
 	update_state();                                                                             // Update kinematics & dynamics for new control loop
 	
 	double elapsedTime = yarp::os::Time::now() - this->startTime;                               // Time since activation of control loop
-	
-	if(elapsedTime >= this->endTime) this->isFinished = true;
 	
 	if(this->controlSpace == joint)
 	{
@@ -273,7 +268,6 @@ void GazeControl::run()
 	else
 	{
 		Eigen::VectorXd dq(this->numJoints);                                                        // We want to solve this
-		Eigen::VectorXd redundantTask = 0.01*(this->setPoint - this->q);
 		Eigen::VectorXd q0(this->numJoints);
 		
 		// Calculate instantaneous joint limits
@@ -289,17 +283,30 @@ void GazeControl::run()
 		}
 		
 		Eigen::VectorXd dx = track_cartesian_trajectory(elapsedTime);                       // Get the desired Cartesian motion
-		Eigen::MatrixXd W = Eigen::MatrixXd::Identity(this->J.rows(), this->J.rows()) * 0.1;
+		Eigen::MatrixXd W = Eigen::MatrixXd::Identity(this->J.cols(), this->J.cols());
+		W(0, 0) = 1000.0;
+		W(1, 1) = 1000.0;
+		W(2, 2) = 0.1;
+		W(3, 3) = 0.1;
+
+		// std::cout << dx << std::endl;
 				
 		try // to solve the joint motion
 		{
-			dq = this->solver->least_squares(
-		                           dx,                                                      // Constraint vector
-		                           this->J,                                                 // Constraint matrix
-								   W,
-		                           lowerBound,
-		                           upperBound,
-		                           q0);                                                     // Start point
+			//redundant_task = ;
+			// dq = this->J.inverse() * dx;
+			redundantTask(0) = (0.0 - this->q(0));
+			redundantTask(1) = (0.0 - this->q(1));
+			redundantTask(3) = (0.0 - this->q(3));
+			dq = this->solver->least_squares(redundantTask,
+		                           			 W,
+								             dx,                                                      
+		                                     this->J,                                                 // Constraint matrix
+		                                     lowerBound,
+		                                     upperBound,
+		                                     q0);                                                     // Start point
+								   
+			
 		}
 		catch(const char* error_message)
 		{
@@ -310,6 +317,7 @@ void GazeControl::run()
 		this->qRef += dq * sample_time;
 	}
 
+	this->debugPort.write();
 	this->jointInterface->send_joint_commands(this->qRef);
 }
 
@@ -350,19 +358,16 @@ bool GazeControl::compute_joint_limits(double &lower, double &upper, const unsig
   ////////////////////////////////////////////////////////////////////////////////////////////////////
  //                        Solve a discrete time step for Cartesian control                        //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-Eigen::Matrix<double,6,1> GazeControl::track_cartesian_trajectory(const double &time)
+Eigen::Matrix<double,3,1> GazeControl::track_cartesian_trajectory(const double &time)
 {
 	// NOTE TO FUTURE SELF:
 	// There are no checks here to see if the trajectory is queried correctly.
 	// This could cause problems later
 	
-	// Variables used in this scope
-	Eigen::Matrix<double,6,1> dx; dx.setZero();                                                // Value to be returned
-	Eigen::Isometry3d pose;                                                                     // Desired pose
-	Eigen::Matrix<double,6,1> vel, acc;                                                         // Desired velocity & acceleration
-	
 	//this->cameraTrajectory.get_state(pose,vel,acc,time);                                        // Desired state for the left hand
-	dx.head(6) = this->K*pose_error(this->desiredCameraPose,this->cameraPose);                      // Feedforward + feedback on the left hand
+
+
+	Eigen::Matrix<double,3,1> dx = this->K*pose_error(this->desiredGaze, this->cameraPose);                      // Feedforward + feedback on the left hand
 
 	// this->rightTrajectory.get_state(pose,vel,acc,time);                                      // Desired state for the right hand
 	// dx.tail(6) = this->dt*vel + this->K*pose_error(pose,this->rightPose);                    // Feedforward + feedback on the right hand
@@ -383,27 +388,7 @@ Eigen::VectorXd GazeControl::track_joint_trajectory(const double &time)
 }
 
 
-  ////////////////////////////////////////////////////////////////////////////////////////////////////
- //                                 Initialise the control thread                                  //
-////////////////////////////////////////////////////////////////////////////////////////////////////
-bool GazeControl::threadInit()
-{
-	if(isRunning())
-	{
-		std::cout << "[ERROR] [POSITION CONTROL] threadInit(): "
-		          << "A control thread is still running!\n";
-		return false;
-	}
-	else
-	{
-		// Reset values
-		this->solver->clear_last_solution();                                                 // In the QP solver
-		this->isFinished = false;                                                           // New action started
-		this->qRef = this->q;                                                               // Start from current joint position
-		this->startTime = yarp::os::Time::now();                                            // Used to time the control loop
-		return true;                                                                        // jumps immediately to run()
-	}
-}
+
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////
  //                             Executed after a control thread is stopped                         //

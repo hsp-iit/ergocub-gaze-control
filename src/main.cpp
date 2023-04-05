@@ -6,6 +6,9 @@
 
 #include <vector>
 #include <iostream>
+#include <cmath>
+#include <chrono>
+#include <thread>
 
 #include <Eigen/Core>
 #include <yarp/os/RpcServer.h>
@@ -94,6 +97,6 @@ int main(int argc, char *argv[])
 			t += 0.001;
 		}
 		
-		return 0;                                                                           // No problems with main
+		return 0;
 	}
 }
