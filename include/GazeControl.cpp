@@ -3,8 +3,8 @@
 
 GazeControl::GazeControl(const std::string &pathToURDF,
                          const std::vector<std::string> &jointList,
-                         const std::vector<std::string> &portList) : 
-						 yarp::os::PeriodicThread(0.01),                                                 // Thread running at 100Hz
+                         const std::vector<std::string> &portList,
+						 const double& sample_time):
 						 numJoints(jointList.size()),                                                    // Set number of joints
 						 q(Eigen::VectorXd::Zero(this->numJoints)),                                      // Set the size of the position vector
 						 qdot(Eigen::VectorXd::Zero(this->numJoints)),                                   // Set the size of the velocity vector
@@ -306,7 +306,8 @@ void GazeControl::run()
 			std::cout << error_message << std::endl;
 			dq.setZero();
 		}
-		this->qRef += dq;
+		std::cout << dq.transpose() * 180.0 / M_PI << std::endl;
+		this->qRef += dq * sample_time;
 	}
 
 	this->jointInterface->send_joint_commands(this->qRef);
