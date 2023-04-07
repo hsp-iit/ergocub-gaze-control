@@ -2,6 +2,7 @@
 #include <iomanip>
 #include <chrono>
 #include <thread>
+#include <string>
 
 GazeControl::GazeControl(const std::string &pathToURDF,
                          const std::vector<std::string> &jointList,
@@ -193,7 +194,6 @@ Eigen::Matrix<double,3,1> GazeControl::pose_error(const Eigen::Vector3d &desired
 	vector.addFloat64(actualSight(2));
 
 	this->debugPort.write();
-
 	error = actualSight.cross(desiredSight);
 	
 	return error;
@@ -208,7 +208,6 @@ bool GazeControl::set_cartesian_gains(const double &proportional)
 	{
 		std::cerr << "[ERROR] [ICUB BASE] set_cartesian_gains(): "
 		          << "Gains must be positive, but your inputs was " << proportional << ".\n";
-		
 		return false;
 	}
 	else{
@@ -283,11 +282,14 @@ void GazeControl::step()
 			upperBound(i) = upper;
 			q0(i) = 0.5*(lower + upper);
 		}
+
 		
 		Eigen::VectorXd dx = track_cartesian_trajectory(elapsedTime);                       // Get the desired Cartesian motion
 		Eigen::MatrixXd W = Eigen::MatrixXd::Identity(this->J.cols(), this->J.cols());
-		W(0, 0) = 1000.0;
-		W(1, 1) = 1000.0;
+		// W(0, 0) = 1000.0;
+		// W(1, 1) = 1000.0;
+		W(0, 0) = 0.1;
+		W(1, 1) = 0.1;
 		W(2, 2) = 0.1;
 		W(3, 3) = 0.1;
 
@@ -295,11 +297,19 @@ void GazeControl::step()
 				
 		try // to solve the joint motion
 		{
+			for(int j=0;j<4;j++)
+			{
+				redundantTask(j) = 0.1*(0.5*(this->jointInterface->positionLimit[j][0] + this->jointInterface->positionLimit[j][1]) - this->q(j));
+			}
+			// redundantTask(0) = 1000000000*(0.5*(this->jointInterface->positionLimit[0][0] + this->jointInterface->positionLimit[0][1]) - this->q(0));
 			//redundant_task = ;
 			// dq = this->J.inverse() * dx;
-			redundantTask(0) = (0.0 - this->q(0));
-			redundantTask(1) = (0.0 - this->q(1));
-			redundantTask(3) = (0.0 - this->q(3));
+			// redundantTask(0) = (0.0 - this->q(0));
+			// redundantTask(1) = (0.0 - this->q(1));
+			// redundantTask(3) = (0.0 - this->q(3));
+
+			// std::cout << sqrt((J*J.transpose()).determinant()) << std::endl;
+
 			dq = this->solver->least_squares(redundantTask,
 		                           			 W,
 								             dx,                                                      
@@ -307,19 +317,31 @@ void GazeControl::step()
 		                                     lowerBound,
 		                                     upperBound,
 		                                     q0);                                                     // Start point
-								   
-			
+			// dq = this->J.transpose()*(this->J*this->J.transpose()).partialPivLu().solve(dx);
 		}
 		catch(const char* error_message)
 		{
 			std::cout << error_message << std::endl;
 			dq.setZero();
 		}
-		std::cout << dq.transpose() * 180.0 / M_PI << std::endl;
-		this->qRef += dq * sample_time;
+		// std::cout << dq.transpose() * 180.0 / M_PI << std::endl;
+		for(int i = 1; i < this->numJoints; i++){
+			this->qRef[i] += dq[i] * sample_time;
+		}
 	}
 
 	this->debugPort.write();
+
+	for(int i = 0; i < this->numJoints; i++){
+		if ((this->qRef[i] * 180.0 / M_PI ) - (this->q[i] * 180.0 / M_PI) > 10){
+			throw std::runtime_error("Requested joint motion for joint " +  std::to_string(i) + "is greater than 5 degrees.");
+		}
+			
+		if ((this->qRef[i] * 180.0 / M_PI ) - (this->q[i] * 180.0 / M_PI) < -10){
+			throw std::runtime_error("Requested joint motion for joint " +  std::to_string(i) + "is greater than 5 degrees.");
+		}
+	}
+
 	this->jointInterface->send_joint_commands(this->qRef);
 }
 
@@ -342,8 +364,19 @@ bool GazeControl::compute_joint_limits(double &lower, double &upper, const unsig
 	}
 	else
 	{
+		// if (jointNum == 0){
+		// 	lower = -0.1 - this->qRef[jointNum];
+		// 	upper = 0.1 - this->qRef[jointNum];
+		// }
+		// else{
 		lower = this->jointInterface->positionLimit[jointNum][0] - this->qRef[jointNum];
 		upper = this->jointInterface->positionLimit[jointNum][1] - this->qRef[jointNum];
+		// }
+		
+		// std::cout << this->jointInterface->positionLimit[jointNum][0] << " - "<< this->qRef[jointNum] << std::endl;
+		// std::cout << lower << std::endl;
+		// std::cout << this->jointInterface->positionLimit[jointNum][1] << " - "<< this->qRef[jointNum] << std::endl;
+		// std::cout << upper << std::endl;
 		
 		if(lower >= upper)
 		{
@@ -370,7 +403,9 @@ Eigen::Matrix<double,3,1> GazeControl::track_cartesian_trajectory(const double &
 
 
 	Eigen::Matrix<double,3,1> dx = this->K*pose_error(this->desiredGaze, this->cameraPose);                      // Feedforward + feedback on the left hand
-
+	// std::cout << "Before clipping " << dx.transpose() << std::endl;q
+	dx = dx.cwiseMin(2);
+	// std::cout << dx.transpose() << std::endl;
 	// this->rightTrajectory.get_state(pose,vel,acc,time);                                      // Desired state for the right hand
 	// dx.tail(6) = this->dt*vel + this->K*pose_error(pose,this->rightPose);                    // Feedforward + feedback on the right hand
 
