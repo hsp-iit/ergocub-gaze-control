@@ -2,6 +2,7 @@ import yarp
 import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib.animation as animation
+import time
 
 # Set up the plot
 fig, ax = plt.subplots()
@@ -55,10 +56,14 @@ def update(data):
 
 # Animate the plot
 yarp.Network.init()
+plt.show(block=False)
+plt.pause(10)
 
 input_port = yarp.BufferedPortBottle()
 input_port.open("/GazeController/Visualizer/debug:i")
-yarp.Network.connect("/GazeController/debug:o", "/GazeController/Visualizer/debug:i")
+while not yarp.Network.connect("/GazeController/debug:o", "/GazeController/Visualizer/debug:i"):
+    time.sleep(0.01)
+print('Connected')
 
 ani = animation.FuncAnimation(fig, update)
 plt.show()
