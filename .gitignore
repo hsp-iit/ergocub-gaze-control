@@ -1,3 +1,9 @@
 .vscode/
 assets/
 build/
+.vscode-server/
+.dotnet/
+.gitconfig
+.gnupg/
+.ssh/
+ergocub-manipulation/
