@@ -25,5 +25,9 @@ add_subdirectory(gazebo)                                                        
 include_directories(include)                                                                        # Location of header files
 
 #################################### Executables to be compiled ####################################
-add_executable(gaze_control src/main include/GazeControl.cpp include/JointInterface.cpp include/QPSolver.cpp include/CartesianTrajectory.cpp)
+add_executable(gaze_control src/server include/RPCServerInterface.cpp include/GazeControl.cpp include/JointInterface.cpp include/QPSolver.cpp)
 target_link_libraries(gaze_control Eigen3::Eigen iDynTree::idyntree-high-level ${YARP_LIBRARIES})
+
+#################################### Executables to be compiled ####################################
+add_executable(test src/test include/RPCServerInterface.cpp include/GazeControl.cpp include/JointInterface.cpp include/QPSolver.cpp)
+target_link_libraries(test Eigen3::Eigen iDynTree::idyntree-high-level ${YARP_LIBRARIES})
