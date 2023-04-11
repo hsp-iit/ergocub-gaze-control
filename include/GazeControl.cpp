@@ -8,6 +8,7 @@ GazeControl::GazeControl(const std::string &pathToURDF,
                          const std::vector<std::string> &jointList,
                          const std::vector<std::string> &portList,
 						 const double& sample_time):
+						 yarp::os::PeriodicThread(sample_time), 
 						 numJoints(jointList.size()),                                                    // Set number of joints
 						 q(Eigen::VectorXd::Zero(this->numJoints)),                                      // Set the size of the position vector
 						 qdot(Eigen::VectorXd::Zero(this->numJoints)),                                   // Set the size of the velocity vector
@@ -51,7 +52,7 @@ GazeControl::GazeControl(const std::string &pathToURDF,
 		else
         {
 			// Resize vectors and matrices based on number of joints
-			this->jointTrajectory.resize(this->numJoints);                              // Trajectory for joint motion control		
+			// this->jointTrajectory.resize(this->numJoints);                              // Trajectory for joint motion control		
 			// if(not update_state()) throw std::runtime_error(message + "Unable to read initial joint state from the encoders.");
 			std::cout << "[INFO] [ICUB BASE] Successfully created iDynTree model from " << pathToURDF << ".\n";
         }
@@ -149,10 +150,9 @@ Eigen::Isometry3d GazeControl::iDynTree_to_Eigen(const iDynTree::Transform &T)
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 bool GazeControl::set_gaze(const Eigen::Vector3d& desiredGaze)
 {
-	this->controlSpace = cartesian;                                                     // Switch to Cartesian control mode
-
 	try
 	{
+		this->controlSpace = cartesian;  
 		this->desiredGaze = desiredGaze;
 		return true;
 	}
@@ -165,7 +165,9 @@ bool GazeControl::set_gaze(const Eigen::Vector3d& desiredGaze)
 
 		return false;
 	}
+	return true;
 }
+
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////
  //                         Get the error between a desired and actual pose                        //
@@ -238,33 +240,38 @@ bool GazeControl::set_joint_gains(const double &proportional, const double &deri
 	}
 }
 
+// double GazeControl::getPeriod()
+// {
+// 	return this->sample_time;
+// }
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //                                     MAIN CONTROL LOOP                                          //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-void GazeControl::step()
+void GazeControl::run()
 {
 
-	this->solver->clear_last_solution();                                                // In the QP solver
+	this->solver->clear_last_solution();                                                        // In the QP solver
 	update_state();                                                                             // Update kinematics & dynamics for new control loop
 	
 	double elapsedTime = yarp::os::Time::now() - this->startTime;                               // Time since activation of control loop
 	
 	if(this->controlSpace == joint)
 	{
-		Eigen::VectorXd qd(this->numJoints);
+		// Eigen::VectorXd qd(this->numJoints);
 		
-		for(int i = 0; i < this->numJoints; i++)
-		{
-			qd(i) = this->jointTrajectory[i].evaluatePoint(elapsedTime);
+		// for(int i = 0; i < this->numJoints; i++)
+		// {
+		// 	qd(i) = this->jointTrajectory[i].evaluatePoint(elapsedTime);
 			
-			if(qd(i) < this->jointInterface->positionLimit[i][0])
-				qd(i) = this->jointInterface->positionLimit[i][0] + 0.001;              // Just above the lower limit
-			if(qd(i) > this->jointInterface->positionLimit[i][1])
-				qd(i) = this->jointInterface->positionLimit[i][1] - 0.001;              // Just below the upper limit
-		}
+		// 	if(qd(i) < this->jointInterface->positionLimit[i][0])
+		// 		qd(i) = this->jointInterface->positionLimit[i][0] + 0.001;              // Just above the lower limit
+		// 	if(qd(i) > this->jointInterface->positionLimit[i][1])
+		// 		qd(i) = this->jointInterface->positionLimit[i][1] - 0.001;              // Just below the upper limit
+		// }
 		
-		this->qRef = qd;                                                                    // Reference position for joint motors
+		// this->qRef = qd;                                                                    // Reference position for joint motors
 	}
 	else
 	{
@@ -343,6 +350,7 @@ void GazeControl::step()
 	}
 
 	this->jointInterface->send_joint_commands(this->qRef);
+
 }
 
 
@@ -415,22 +423,25 @@ Eigen::Matrix<double,3,1> GazeControl::track_cartesian_trajectory(const double &
   ////////////////////////////////////////////////////////////////////////////////////////////////////
  //                     Solve the step size to track the joint trajectory                          //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-Eigen::VectorXd GazeControl::track_joint_trajectory(const double &time)
+// Eigen::VectorXd GazeControl::track_joint_trajectory(const double &time)
+// {
+// 	Eigen::VectorXd dq(this->numJoints); dq.setZero();                                          // Value to be returned
+	
+// 	for(int i = 0; i < this->numJoints; i++) dq[i] = this->jointTrajectory[i].evaluatePoint(time) - this->q[i];
+	
+// 	return dq;
+// }
+
+
+bool GazeControl::threadInit()
 {
-	Eigen::VectorXd dq(this->numJoints); dq.setZero();                                          // Value to be returned
-	
-	for(int i = 0; i < this->numJoints; i++) dq[i] = this->jointTrajectory[i].evaluatePoint(time) - this->q[i];
-	
-	return dq;
+	return true;
 }
-
-
-
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////
  //                             Executed after a control thread is stopped                         //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void GazeControl::threadRelease()
 {
-	this->jointInterface->send_joint_commands(this->q);                                                               // Maintain current joint positions
+	// send_joint_commands(this->q);                                                               // Maintain current joint positions
 }

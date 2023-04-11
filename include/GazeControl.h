@@ -1,15 +1,15 @@
 #include <iDynTree/KinDynComputations.h>                                                            // Class for invers dynamics calculations                                                                 // Class that holds info on kinematic tree structure
 #include <iDynTree/ModelIO/ModelLoader.h>   
 #include <yarp/os/PeriodicThread.h>                                                                 // Class for timing control loops
+// #include <yarp/os/RFModule.h>
 
 #include <yarp/os/BufferedPort.h>
 #include <yarp/os/Bottle.h>
 
 #include "JointInterface.h"
 #include "QPSolver.h"
-#include <CartesianTrajectory.h>
 
-class GazeControl
+class GazeControl: public yarp::os::PeriodicThread
 {
     private:
         JointInterface* jointInterface;
@@ -39,7 +39,7 @@ class GazeControl
         // Joint control
 		double kp = 1.0;                                                                    // Default proportional gain
 		double kd = 2*sqrt(this->kp);                                                       // Theoretically optimal damping
-		std::vector<iDynTree::CubicSpline> jointTrajectory;                                 // As it says
+		// std::vector<iDynTree::CubicSpline> jointTrajectory;                                 // As it says
 		
 
         enum ControlSpace {joint, cartesian} controlSpace;
@@ -50,7 +50,6 @@ class GazeControl
         Eigen::Matrix<double,3,1> pose_error(const Eigen::Vector3d &desired,
                                         const Eigen::Isometry3d &actual);                             
 		 
-		
         
 
     protected:
@@ -59,8 +58,8 @@ class GazeControl
         Eigen::MatrixXd J, M, invM;                                                         // Jacobian, inertia and its inverse
         Eigen::Isometry3d cameraPose;                                                       // Camera pose
         Eigen::Vector3d desiredGaze;
-        CartesianTrajectory cameraTrajectory;                                               // Trajectory generators for the hands
-        Eigen::Matrix<double, 3, 3> K;                                                        // Feedback on pose error
+        // CartesianTrajectory cameraTrajectory;                                            // Trajectory generators for the hands
+        Eigen::Matrix<double, 3, 3> K;                                                      // Feedback on pose error
 
 	public:
 		GazeControl(const std::string &pathToURDF,
@@ -75,5 +74,9 @@ class GazeControl
         
  
 		bool set_gaze(const Eigen::Vector3d& desiredGaze);                        // Set the gaze
-        void step();             
+
+
+        void run() override;
+        // double getPeriod() override;	
+
 };
