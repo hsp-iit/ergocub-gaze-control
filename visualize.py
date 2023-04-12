@@ -6,7 +6,7 @@ import time
 
 # Set up the plot
 fig, ax = plt.subplots()
-ax.set_ylim([200, 600])
+ax.set_ylim([-10, 10])
 ax.set_title('Line of sight vector')
 
 line1, = ax.plot(np.zeros(100), color='blue', label='desired x')
