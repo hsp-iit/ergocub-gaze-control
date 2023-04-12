@@ -6,21 +6,19 @@ import time
 
 # Set up the plot
 fig, ax = plt.subplots()
-ax.set_ylim([-1.1, 1.1])
+ax.set_ylim([200, 600])
 ax.set_title('Line of sight vector')
 
 line1, = ax.plot(np.zeros(100), color='blue', label='desired x')
 line2, = ax.plot(np.zeros(100), color='red', label='desired y')
-line3, = ax.plot(np.zeros(100), color='green', label='desired z')
 
-line4, = ax.plot(np.zeros(100), color='blue', linestyle='dotted', label='actual x')
-line5, = ax.plot(np.zeros(100), color='red', linestyle='dotted', label='actual y')
-line6, = ax.plot(np.zeros(100), color='green', linestyle='dotted', label='actual z')
+line3, = ax.plot(np.zeros(100), color='blue', linestyle='dotted', label='actual x')
+line4, = ax.plot(np.zeros(100), color='red', linestyle='dotted', label='actual y')
 
 ax.legend()
 
-lines1 = [line1, line2, line3]
-lines2 = [line4, line5, line6]
+lines1 = [line1, line2]
+lines2 = [line3, line4]
 
 # Update the plot
 def update(data):
