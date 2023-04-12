@@ -35,6 +35,11 @@ public:
         this->gazeController->set_gaze(eigen_gaze);
         return true;
     }
+
+    bool set_gain(const double gain){
+        return this->gazeController->set_cartesian_gains(gain);
+    }
+
 private:
 yarp::os::RpcServer server_port;
 };
@@ -69,8 +74,7 @@ int main(int argc, char *argv[])
     yarp::os::Network yarp;
 
     GazeControl gazeController(pathToURDF, jointList, portList, sample_time);
-    gazeController.set_cartesian_gains(15);
-
+    gazeController.set_cartesian_gains(0.001);
     gazeController.start();
 
     RPCServer server(&gazeController);

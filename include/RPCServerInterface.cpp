@@ -77,6 +77,69 @@ public:
     static constexpr const char* s_help{""};
 };
 
+// set_gain helper class declaration
+class RPCServerInterface_set_gain_helper :
+        public yarp::os::Portable
+{
+public:
+    RPCServerInterface_set_gain_helper() = default;
+    explicit RPCServerInterface_set_gain_helper(const double gain);
+    bool write(yarp::os::ConnectionWriter& connection) const override;
+    bool read(yarp::os::ConnectionReader& connection) override;
+
+    class Command :
+            public yarp::os::idl::WirePortable
+    {
+    public:
+        Command() = default;
+        explicit Command(const double gain);
+
+        ~Command() override = default;
+
+        bool write(yarp::os::ConnectionWriter& connection) const override;
+        bool read(yarp::os::ConnectionReader& connection) override;
+
+        bool write(const yarp::os::idl::WireWriter& writer) const override;
+        bool writeTag(const yarp::os::idl::WireWriter& writer) const;
+        bool writeArgs(const yarp::os::idl::WireWriter& writer) const;
+
+        bool read(yarp::os::idl::WireReader& reader) override;
+        bool readTag(yarp::os::idl::WireReader& reader);
+        bool readArgs(yarp::os::idl::WireReader& reader);
+
+        double gain{0.0};
+    };
+
+    class Reply :
+            public yarp::os::idl::WirePortable
+    {
+    public:
+        Reply() = default;
+        ~Reply() override = default;
+
+        bool write(yarp::os::ConnectionWriter& connection) const override;
+        bool read(yarp::os::ConnectionReader& connection) override;
+
+        bool write(const yarp::os::idl::WireWriter& writer) const override;
+        bool read(yarp::os::idl::WireReader& reader) override;
+
+        bool return_helper{false};
+    };
+
+    using funcptr_t = bool (*)(const double);
+    void call(RPCServerInterface* ptr);
+
+    Command cmd;
+    Reply reply;
+
+    static constexpr const char* s_tag{"set_gain"};
+    static constexpr size_t s_tag_len{2};
+    static constexpr size_t s_cmd_len{3};
+    static constexpr size_t s_reply_len{1};
+    static constexpr const char* s_prototype{"bool RPCServerInterface::set_gain(const double gain)"};
+    static constexpr const char* s_help{""};
+};
+
 // look_at helper class implementation
 RPCServerInterface_look_at_helper::RPCServerInterface_look_at_helper(const std::vector<double>& point) :
         cmd{point}
@@ -248,6 +311,160 @@ void RPCServerInterface_look_at_helper::call(RPCServerInterface* ptr)
     reply.return_helper = ptr->look_at(cmd.point);
 }
 
+// set_gain helper class implementation
+RPCServerInterface_set_gain_helper::RPCServerInterface_set_gain_helper(const double gain) :
+        cmd{gain}
+{
+}
+
+bool RPCServerInterface_set_gain_helper::write(yarp::os::ConnectionWriter& connection) const
+{
+    return cmd.write(connection);
+}
+
+bool RPCServerInterface_set_gain_helper::read(yarp::os::ConnectionReader& connection)
+{
+    return reply.read(connection);
+}
+
+RPCServerInterface_set_gain_helper::Command::Command(const double gain) :
+        gain{gain}
+{
+}
+
+bool RPCServerInterface_set_gain_helper::Command::write(yarp::os::ConnectionWriter& connection) const
+{
+    yarp::os::idl::WireWriter writer(connection);
+    if (!writer.writeListHeader(s_cmd_len)) {
+        return false;
+    }
+    return write(writer);
+}
+
+bool RPCServerInterface_set_gain_helper::Command::read(yarp::os::ConnectionReader& connection)
+{
+    yarp::os::idl::WireReader reader(connection);
+    if (!reader.readListHeader()) {
+        reader.fail();
+        return false;
+    }
+    return read(reader);
+}
+
+bool RPCServerInterface_set_gain_helper::Command::write(const yarp::os::idl::WireWriter& writer) const
+{
+    if (!writeTag(writer)) {
+        return false;
+    }
+    if (!writeArgs(writer)) {
+        return false;
+    }
+    return true;
+}
+
+bool RPCServerInterface_set_gain_helper::Command::writeTag(const yarp::os::idl::WireWriter& writer) const
+{
+    if (!writer.writeTag(s_tag, 1, s_tag_len)) {
+        return false;
+    }
+    return true;
+}
+
+bool RPCServerInterface_set_gain_helper::Command::writeArgs(const yarp::os::idl::WireWriter& writer) const
+{
+    if (!writer.writeFloat64(gain)) {
+        return false;
+    }
+    return true;
+}
+
+bool RPCServerInterface_set_gain_helper::Command::read(yarp::os::idl::WireReader& reader)
+{
+    if (!readTag(reader)) {
+        return false;
+    }
+    if (!readArgs(reader)) {
+        return false;
+    }
+    return true;
+}
+
+bool RPCServerInterface_set_gain_helper::Command::readTag(yarp::os::idl::WireReader& reader)
+{
+    std::string tag = reader.readTag(s_tag_len);
+    if (reader.isError()) {
+        return false;
+    }
+    if (tag != s_tag) {
+        reader.fail();
+        return false;
+    }
+    return true;
+}
+
+bool RPCServerInterface_set_gain_helper::Command::readArgs(yarp::os::idl::WireReader& reader)
+{
+    if (reader.noMore()) {
+        reader.fail();
+        return false;
+    }
+    if (!reader.readFloat64(gain)) {
+        reader.fail();
+        return false;
+    }
+    if (!reader.noMore()) {
+        reader.fail();
+        return false;
+    }
+    return true;
+}
+
+bool RPCServerInterface_set_gain_helper::Reply::write(yarp::os::ConnectionWriter& connection) const
+{
+    yarp::os::idl::WireWriter writer(connection);
+    return write(writer);
+}
+
+bool RPCServerInterface_set_gain_helper::Reply::read(yarp::os::ConnectionReader& connection)
+{
+    yarp::os::idl::WireReader reader(connection);
+    return read(reader);
+}
+
+bool RPCServerInterface_set_gain_helper::Reply::write(const yarp::os::idl::WireWriter& writer) const
+{
+    if (!writer.isNull()) {
+        if (!writer.writeListHeader(s_reply_len)) {
+            return false;
+        }
+        if (!writer.writeBool(return_helper)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool RPCServerInterface_set_gain_helper::Reply::read(yarp::os::idl::WireReader& reader)
+{
+    if (!reader.readListReturn()) {
+        return false;
+    }
+    if (reader.noMore()) {
+        reader.fail();
+        return false;
+    }
+    if (!reader.readBool(return_helper)) {
+        reader.fail();
+        return false;
+    }
+    return true;
+}
+
+void RPCServerInterface_set_gain_helper::call(RPCServerInterface* ptr)
+{
+    reply.return_helper = ptr->set_gain(cmd.gain);
+}
+
 // Constructor
 RPCServerInterface::RPCServerInterface()
 {
@@ -264,6 +481,16 @@ bool RPCServerInterface::look_at(const std::vector<double>& point)
     return ok ? helper.reply.return_helper : bool{};
 }
 
+bool RPCServerInterface::set_gain(const double gain)
+{
+    if (!yarp().canWrite()) {
+        yError("Missing server method '%s'?", RPCServerInterface_set_gain_helper::s_prototype);
+    }
+    RPCServerInterface_set_gain_helper helper{gain};
+    bool ok = yarp().write(helper, helper);
+    return ok ? helper.reply.return_helper : bool{};
+}
+
 // help method
 std::vector<std::string> RPCServerInterface::help(const std::string& functionName)
 {
@@ -272,10 +499,14 @@ std::vector<std::string> RPCServerInterface::help(const std::string& functionNam
     if (showAll) {
         helpString.emplace_back("*** Available commands:");
         helpString.emplace_back(RPCServerInterface_look_at_helper::s_tag);
+        helpString.emplace_back(RPCServerInterface_set_gain_helper::s_tag);
         helpString.emplace_back("help");
     } else {
         if (functionName == RPCServerInterface_look_at_helper::s_tag) {
             helpString.emplace_back(RPCServerInterface_look_at_helper::s_prototype);
+        }
+        if (functionName == RPCServerInterface_set_gain_helper::s_tag) {
+            helpString.emplace_back(RPCServerInterface_set_gain_helper::s_prototype);
         }
         if (functionName == "help") {
             helpString.emplace_back("std::vector<std::string> help(const std::string& functionName = \"--all\")");
@@ -311,6 +542,21 @@ bool RPCServerInterface::read(yarp::os::ConnectionReader& connection)
     while (tag_len <= max_tag_len && !reader.isError()) {
         if (tag == RPCServerInterface_look_at_helper::s_tag) {
             RPCServerInterface_look_at_helper helper;
+            if (!helper.cmd.readArgs(reader)) {
+                return false;
+            }
+
+            helper.call(this);
+
+            yarp::os::idl::WireWriter writer(reader);
+            if (!helper.reply.write(writer)) {
+                return false;
+            }
+            reader.accept();
+            return true;
+        }
+        if (tag == RPCServerInterface_set_gain_helper::s_tag) {
+            RPCServerInterface_set_gain_helper helper;
             if (!helper.cmd.readArgs(reader)) {
                 return false;
             }

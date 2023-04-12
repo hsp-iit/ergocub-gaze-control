@@ -23,6 +23,8 @@ public:
 
     virtual bool look_at(const std::vector<double>& point);
 
+    virtual bool set_gain(const double gain);
+
     // help method
     virtual std::vector<std::string> help(const std::string& functionName = "--all");
 
