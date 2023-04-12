@@ -30,7 +30,7 @@ class GazeControl: public yarp::os::PeriodicThread
 
         // PositionControl
         bool compute_joint_limits(double &lower, double &upper, const unsigned int &jointNum);
-		Eigen::Matrix<double,3,1> track_cartesian_trajectory(const double &time);
+		Eigen::Matrix<double,2,1> track_cartesian_trajectory(const double &time);
 		Eigen::VectorXd track_joint_trajectory(const double &time);
         Eigen::VectorXd qRef;                                                               // Reference joint position to send to motors
         bool threadInit();
@@ -47,19 +47,27 @@ class GazeControl: public yarp::os::PeriodicThread
 		double startTime, endTime;                                                          // For regulating the control loop
 		double sample_time;
 
-        Eigen::Matrix<double,3,1> pose_error(const Eigen::Vector3d &desired,
-                                        const Eigen::Isometry3d &actual);                             
+        Eigen::Matrix<double,2,1> pose_error(const Eigen::Vector3d &desired);                             
 		 
         
 
     protected:
         // Kinematics & dynamics
 		Eigen::VectorXd q, qdot;                                                            // Joint positions and velocities
-        Eigen::MatrixXd J, M, invM;                                                         // Jacobian, inertia and its inverse
+        double image_width = 640;
+        double image_height = 480;
+        // Intrinsic Matrix
+        Eigen::Matrix<double,3, 3> C = (Eigen::MatrixXd(3, 3) << 570.3422241210938, 0.0, 319.5,
+                                                                 0.0, 570.3422241210938, 239.5,
+                                                                 0.0, 0.0, 1.0).finished();
+        Eigen::Matrix<double,6,4> J_R;                                                      // Camera Jacobian
+        Eigen::Matrix<double,6,6> M = Eigen::MatrixXd::Zero(6,6);
+        Eigen::Matrix<double,2,6> J_I = (Eigen::MatrixXd(2,6) << 1.0, 0.0, 0.0,  0.0, 1.0, 0.0,
+                                                                 0.0, 1.0, 0.0, -1.0, 0.0, 0.0).finished();
+        Eigen::Matrix<double,2,4> J;
         Eigen::Isometry3d cameraPose;                                                       // Camera pose
-        Eigen::Vector3d desiredGaze;
-        // CartesianTrajectory cameraTrajectory;                                            // Trajectory generators for the hands
-        Eigen::Matrix<double, 3, 3> K;                                                      // Feedback on pose error
+        Eigen::Vector3d desiredGaze = (Eigen::Vector3d() << 0.074927 + 0.1, -0.011469, 1.523281 - 0.9).finished();
+        Eigen::Matrix<double, 2, 2> K;                                                      // Gain
 
 	public:
 		GazeControl(const std::string &pathToURDF,
