@@ -43,6 +43,7 @@ int main(int argc, char *argv[])
     double t = 0;
     std::vector<double> root_to_camera{0.074927, -0.011469, 1.523281 - 0.9};
 
+    gaze_controller.set_gain(0.001);
     while(true)
     {
         double y = std::cos(2 * M_PI * f * t) * A;
@@ -53,8 +54,6 @@ int main(int argc, char *argv[])
         for(int i=0; i<3; i++){
             point[i] += root_to_camera[i];
         }
-        
-
         gaze_controller.look_at(point);
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
         t += 0.001;
