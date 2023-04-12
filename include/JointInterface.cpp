@@ -27,7 +27,7 @@ JointInterface::JointInterface(const std::vector<std::string> &jointList,
 	for(int i = 0; i < portList.size(); i++) remoteControlBoardsList.addString(portList[i]);    // Add the remote control board port names
 
 	options.put("remoteControlBoards", remoteControlBoards.get(0));
-	options.put("localPortPrefix", "/local");
+	options.put("localPortPrefix", "/GazeController");
 
 	yarp::os::Property &remoteControlBoardsOpts = options.addGroup("REMOTE_CONTROLBOARD_OPTIONS");
 			    remoteControlBoardsOpts.put("writeStrict", "on");
