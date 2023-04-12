@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
     yarp::os::Network yarp;
 
     GazeControl gazeController(pathToURDF, jointList, portList, sample_time);
-    gazeController.set_cartesian_gains(0.001);
+    gazeController.set_cartesian_gains(0.01);
     gazeController.start();
 
     RPCServer server(&gazeController);

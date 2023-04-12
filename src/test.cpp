@@ -43,7 +43,7 @@ int main(int argc, char *argv[])
     double t = 0;
     std::vector<double> root_to_camera{0.074927, -0.011469, 1.523281 - 0.9};
 
-    gaze_controller.set_gain(0.001);
+    gaze_controller.set_gain(0.01);
     while(true)
     {
         double y = std::cos(2 * M_PI * f * t) * A;
