@@ -20,7 +20,7 @@ class GazeControl: public yarp::os::PeriodicThread
         iDynTree::KinDynComputations computer;
 
         unsigned int numJoints;                                                             // Number of joints being controlled
-        
+        unsigned int numHeadJoints;
         // Utils
 		iDynTree::Transform Eigen_to_iDynTree(const Eigen::Isometry3d &T);                  // Converts from Eigen to iDynTree
 		Eigen::Isometry3d   iDynTree_to_Eigen(const iDynTree::Transform &T);                // Converts from iDynTree to Eigen

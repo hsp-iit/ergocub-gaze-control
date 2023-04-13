@@ -10,16 +10,17 @@ GazeControl::GazeControl(const std::string &pathToURDF,
 						 const double& sample_time):
 						 yarp::os::PeriodicThread(sample_time), 
 						 numJoints(jointList.size()),                                                    // Set number of joints
+						 numHeadJoints(jointList.size() - 3),
 						 q(Eigen::VectorXd::Zero(this->numJoints)),                                      // Set the size of the position vector
 						 qdot(Eigen::VectorXd::Zero(this->numJoints)),                                   // Set the size of the velocity vector
-						 J_R(Eigen::MatrixXd::Zero(6,this->numJoints)),                                    // Set the size of the Jacobian matrix
+						 J_R(Eigen::MatrixXd::Zero(6,this->numHeadJoints)),                              // Set the size of the Jacobian matrix (3 are the torso joint)
 						 sample_time(sample_time)
 {
     this->jointInterface = new JointInterface(jointList, portList);
     this->solver = new QPSolver();
 
 	// Redundant Task
-	redundantTask.resize(this->numJoints);
+	redundantTask.resize(this->numHeadJoints);
 	redundantTask.setZero();
 
 	// Debugging
@@ -58,7 +59,7 @@ GazeControl::GazeControl(const std::string &pathToURDF,
 	while (not this->update_state()){
 		std::this_thread::sleep_for(std::chrono::milliseconds(int(sample_time * 1000.0)));
 	}
-	this->qRef = this->q;                                                               // Start from current joint position  
+	this->qRef = this->q.head(this->numHeadJoints);                                                               // Start from current joint position  
 };
 
 
@@ -87,7 +88,7 @@ bool GazeControl::update_state()
 			Eigen::MatrixXd temp(6,6+this->numJoints);                                  // Temporary storage
 			
 			this->computer.getFrameFreeFloatingJacobian("realsense_rgb_frame",temp);    // Compute camera Jacobian "realsense_rgb_frame"
-			this->J_R = temp.bottomRightCorner(6, this->numJoints);                     // Remove floating base
+			this->J_R = temp.middleCols(6,this->numJoints - 3);                             // Remove floating base and torso
 			
             // Update camera pose
 			this->cameraPose  = iDynTree_to_Eigen(this->computer.getWorldTransform("realsense_rgb_frame"));  // realsense_rgb_frame
@@ -201,7 +202,7 @@ Eigen::Matrix<double,2,1> GazeControl::pose_error(const Eigen::Vector3d &desired
 	
 	point2.addFloat64(actualSight(0));
 	point2.addFloat64(actualSight(1));
-	point1.addFloat64(actualSight(2));
+	point2.addFloat64(actualSight(2));
 
 	this->debugPort.write();
 
@@ -284,12 +285,12 @@ void GazeControl::run()
 	}
 	else
 	{
-		Eigen::VectorXd dq(this->numJoints);                                                        // We want to solve this
-		Eigen::VectorXd q0(this->numJoints);
+		Eigen::VectorXd dq(this->numHeadJoints);                                                        // We want to solve this
+		Eigen::VectorXd q0(this->numHeadJoints);
 		
 		// Calculate instantaneous joint limits
-		Eigen::VectorXd lowerBound(this->numJoints), upperBound(this->numJoints);
-		for(int i = 0; i < this->numJoints; i++)
+		Eigen::VectorXd lowerBound(this->numHeadJoints), upperBound(this->numHeadJoints);
+		for(int i = 0; i < this->numHeadJoints; i++)
 		{
 			double lower, upper;
 			compute_joint_limits(lower,upper,i);
@@ -330,7 +331,7 @@ void GazeControl::run()
 	}
 
 
-	for(int i = 0; i < this->numJoints; i++){
+	for(int i = 0; i < this->numHeadJoints; i++){
 		if ((this->qRef[i] * 180.0 / M_PI ) - (this->q[i] * 180.0 / M_PI) > 10){
 			throw std::runtime_error("Requested joint motion for joint " +  std::to_string(i) + "is greater than 10 degrees.");
 		}
