@@ -9,16 +9,18 @@ fig, ax = plt.subplots()
 ax.set_ylim([-10, 10])
 ax.set_title('Line of sight vector')
 
-line1, = ax.plot(np.zeros(100), color='blue', label='desired x')
-line2, = ax.plot(np.zeros(100), color='red', label='desired y')
+line1, = ax.plot(np.zeros(100), color='red', label='desired x')
+line2, = ax.plot(np.zeros(100), color='green', label='desired y')
+line3, = ax.plot(np.zeros(100), color='blue', label='desired z')
 
-line3, = ax.plot(np.zeros(100), color='blue', linestyle='dotted', label='actual x')
-line4, = ax.plot(np.zeros(100), color='red', linestyle='dotted', label='actual y')
+line4, = ax.plot(np.zeros(100), color='red', linestyle='dotted', label='actual x')
+line5, = ax.plot(np.zeros(100), color='green', linestyle='dotted', label='actual y')
+line6, = ax.plot(np.zeros(100), color='blue', linestyle='dotted', label='actual z')
 
 ax.legend()
 
-lines1 = [line1, line2]
-lines2 = [line3, line4]
+lines1 = [line1, line2, line3]
+lines2 = [line4, line5, line6]
 
 # Update the plot
 def update(data):
@@ -58,8 +60,8 @@ plt.show(block=False)
 plt.pause(10)
 
 input_port = yarp.BufferedPortBottle()
-input_port.open("/GazeController/Visualizer/debug:i")
-while not yarp.Network.connect("/GazeController/debug:o", "/GazeController/Visualizer/debug:i"):
+input_port.open("/GazeController/Visualizer/debu:i")
+while not yarp.Network.connect("/GazeController/debug:o", "/GazeController/Visualizer/debu:i"):
     time.sleep(0.01)
 print('Connected')
 
