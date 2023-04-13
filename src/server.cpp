@@ -70,10 +70,11 @@ int main(int argc, char *argv[])
         portList.push_back(ports.get(i).asString());
 
     double sample_time = prop.find("sample_time").asFloat64();
+    double numControlledJoints = prop.find("controlled_joints").asFloat64();
 
     yarp::os::Network yarp;
 
-    GazeControl gazeController(pathToURDF, jointList, portList, sample_time);
+    GazeControl gazeController(pathToURDF, jointList, portList, numControlledJoints, sample_time);
     gazeController.set_cartesian_gains(0.01);
     gazeController.start();
 

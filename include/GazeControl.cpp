@@ -7,20 +7,22 @@
 GazeControl::GazeControl(const std::string &pathToURDF,
                          const std::vector<std::string> &jointList,
                          const std::vector<std::string> &portList,
+						 const int& numControlledJoints,
 						 const double& sample_time):
 						 yarp::os::PeriodicThread(sample_time), 
 						 numJoints(jointList.size()),                                                    // Set number of joints
-						 numHeadJoints(jointList.size() - 3),
+						 numControlledJoints(numControlledJoints),
 						 q(Eigen::VectorXd::Zero(this->numJoints)),                                      // Set the size of the position vector
 						 qdot(Eigen::VectorXd::Zero(this->numJoints)),                                   // Set the size of the velocity vector
-						 J_R(Eigen::MatrixXd::Zero(6,this->numHeadJoints)),                              // Set the size of the Jacobian matrix (3 are the torso joint)
+						 J_R(Eigen::MatrixXd::Zero(6,numControlledJoints)),                              // Set the size of the Jacobian matrix (3 are the torso joint)
+						 J(Eigen::MatrixXd::Zero(2,numControlledJoints)),  
 						 sample_time(sample_time)
 {
     this->jointInterface = new JointInterface(jointList, portList);
     this->solver = new QPSolver();
 
 	// Redundant Task
-	redundantTask.resize(this->numHeadJoints);
+	redundantTask.resize(this->numControlledJoints);
 	redundantTask.setZero();
 
 	// Debugging
@@ -59,7 +61,7 @@ GazeControl::GazeControl(const std::string &pathToURDF,
 	while (not this->update_state()){
 		std::this_thread::sleep_for(std::chrono::milliseconds(int(sample_time * 1000.0)));
 	}
-	this->qRef = this->q.head(this->numHeadJoints);                                                               // Start from current joint position  
+	this->qRef = this->q.head(this->numControlledJoints);                                                               // Start from current joint position  
 };
 
 
@@ -87,11 +89,11 @@ bool GazeControl::update_state()
 			// Get the camera Jacobian
 			Eigen::MatrixXd temp(6,6+this->numJoints);                                  // Temporary storage
 			
-			this->computer.getFrameFreeFloatingJacobian("realsense_rgb_frame",temp);    // Compute camera Jacobian "realsense_rgb_frame"
+			this->computer.getFrameFreeFloatingJacobian("realsense_rgb_frame",temp);    // Compute camera Jacobian "realsense_rgb_frame"  "eyes_tilt_frame"
 			this->J_R = temp.middleCols(6,this->numJoints - 3);                             // Remove floating base and torso
 			
             // Update camera pose
-			this->cameraPose  = iDynTree_to_Eigen(this->computer.getWorldTransform("realsense_rgb_frame"));  // realsense_rgb_frame
+			this->cameraPose  = iDynTree_to_Eigen(this->computer.getWorldTransform("realsense_rgb_frame"));  // realsense_rgb_frame  "eyes_tilt_frame"
 			
 			// Camera Rotation Matrix
 			this->M.topLeftCorner(3, 3)     = this->cameraPose.rotation().transpose();
@@ -285,12 +287,12 @@ void GazeControl::run()
 	}
 	else
 	{
-		Eigen::VectorXd dq(this->numHeadJoints);                                                        // We want to solve this
-		Eigen::VectorXd q0(this->numHeadJoints);
+		Eigen::VectorXd dq(this->numControlledJoints);                                                        // We want to solve this
+		Eigen::VectorXd q0(this->numControlledJoints);
 		
 		// Calculate instantaneous joint limits
-		Eigen::VectorXd lowerBound(this->numHeadJoints), upperBound(this->numHeadJoints);
-		for(int i = 0; i < this->numHeadJoints; i++)
+		Eigen::VectorXd lowerBound(this->numControlledJoints), upperBound(this->numControlledJoints);
+		for(int i = 0; i < this->numControlledJoints; i++)
 		{
 			double lower, upper;
 			compute_joint_limits(lower,upper,i);
@@ -331,7 +333,7 @@ void GazeControl::run()
 	}
 
 
-	for(int i = 0; i < this->numHeadJoints; i++){
+	for(int i = 0; i < this->numControlledJoints; i++){
 		if ((this->qRef[i] * 180.0 / M_PI ) - (this->q[i] * 180.0 / M_PI) > 10){
 			throw std::runtime_error("Requested joint motion for joint " +  std::to_string(i) + "is greater than 10 degrees.");
 		}
