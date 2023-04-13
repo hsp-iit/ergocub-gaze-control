@@ -41,7 +41,8 @@ int main(int argc, char *argv[])
     double f = 1;
     double A = 0.1;
     double t = 0;
-    std::vector<double> root_to_camera{0.074927, -0.011469, 1.523281 - 0.9};
+    // std::vector<double> root_to_camera{-0.092092 -0.2, 0.001294, 0.320022};  // iCub
+    std::vector<double> root_to_camera{0.074927, -0.011469, 1.523281 - 0.9};  // eCub
 
     gaze_controller.set_gain(0.01);
     while(true)
