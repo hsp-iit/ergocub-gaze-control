@@ -111,29 +111,21 @@ bool JointInterface::read_encoders(Eigen::VectorXd &pos, Eigen::VectorXd &vel)
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 bool JointInterface::send_joint_commands(const Eigen::VectorXd &commands)
 {
-	if(commands.size() != this->numJoints)
+	
+
+	for(int i = 0; i < commands.size(); i++)
 	{
-		std::cerr << "[ERROR] [JOINT INTERFACE] send_joint_command(): "
-		          << "This robot has " << this->numJoints << " active joints but the input "
-		          << "argument had " << commands.size() << " elements.\n";
-		          
-	        return false;
-	}
-	else
-	{
-		for(int i = 0; i < this->numJoints; i++)
+		if(not this->pController->setPosition(i,commands[i]*180.0/M_PI))
 		{
-			if(not this->pController->setPosition(i,commands[i]*180.0/M_PI))
-			{
-				std::cerr << "[ERROR] [JOINT INTERFACE] send_joint_commands(): "
-				          << "Could not send a command for joint " << i << ".\n";
-				
-				return false;
-			}
+			std::cerr << "[ERROR] [JOINT INTERFACE] send_joint_commands(): "
+						<< "Could not send a command for joint " << i << ".\n";
+			
+			return false;
 		}
-		
-		return true;
 	}
+	
+	return true;
+	
 }
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////
