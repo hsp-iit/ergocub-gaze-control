@@ -21,7 +21,7 @@ include(ICUBcontribOptions)                                                     
 icubcontrib_add_uninstall_target()					                            # Enables uninstall
 
 #################################### Other files to be built #######################################
-add_subdirectory(gazebo)                                                                            # Location of other CMakeLists
+# add_subdirectory(gazebo)                                                                            # Location of other CMakeLists
 include_directories(include)                                                                        # Location of header files
 
 #################################### Executables to be compiled ####################################
