@@ -191,22 +191,22 @@ Eigen::Matrix<double,2,1> GazeControl::pose_error(const Eigen::Vector3d &desired
 	Eigen::Vector3d desiredSight = (this->desiredGaze - this->cameraPose.translation()).normalized();
 	Eigen::Vector3d actualSight = this->cameraPose.rotation().col(2);
 
-	yarp::os::Bottle& debugOutput = this->debugPort.prepare();
-	debugOutput.clear();
+	// yarp::os::Bottle& debugOutput = this->debugPort.prepare();
+	// debugOutput.clear();
 
-	yarp::os::Bottle& point1 = debugOutput.addList();
-	yarp::os::Bottle& point2 = debugOutput.addList();
+	// yarp::os::Bottle& point1 = debugOutput.addList();
+	// yarp::os::Bottle& point2 = debugOutput.addList();
 
-	point1.addFloat64(desiredSight(0));
-	point1.addFloat64(desiredSight(1));
-	point1.addFloat64(desiredSight(2));
+	// point1.addFloat64(desiredSight(0));
+	// point1.addFloat64(desiredSight(1));
+	// point1.addFloat64(desiredSight(2));
 
 	
-	point2.addFloat64(actualSight(0));
-	point2.addFloat64(actualSight(1));
-	point2.addFloat64(actualSight(2));
+	// point2.addFloat64(actualSight(0));
+	// point2.addFloat64(actualSight(1));
+	// point2.addFloat64(actualSight(2));
 
-	this->debugPort.write();
+	// this->debugPort.write();
 
 	error = uv - actual;
 
@@ -327,6 +327,25 @@ void GazeControl::run()
 			std::cout << error_message << std::endl;
 			dq.setZero();
 		}
+
+		yarp::os::Bottle& debugOutput = this->debugPort.prepare();
+		debugOutput.clear();
+
+		yarp::os::Bottle& point1 = debugOutput.addList();
+		yarp::os::Bottle& point2 = debugOutput.addList();
+
+		point1.addFloat64(this->q(0));
+		point1.addFloat64(this->q(1));
+		point1.addFloat64(this->q(2));
+		point1.addFloat64(this->q(3));
+
+		
+		point2.addFloat64(this->qRef(0));
+		point2.addFloat64(this->qRef(1));
+		point2.addFloat64(this->qRef(2));
+		point2.addFloat64(this->qRef(3));
+
+	this->debugPort.write();
 
 		this->qRef += dq * sample_time;
 		
