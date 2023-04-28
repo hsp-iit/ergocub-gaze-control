@@ -65,7 +65,7 @@ class GazeControl: public yarp::os::PeriodicThread
         Eigen::Isometry3d cameraPose;                                                       // Camera pose
          
         // Eigen::Vector3d desiredGaze = (Eigen::Vector3d() << -0.092092 - 0.1, 0.001294, 0.320022).finished();  // icub
-        Eigen::Vector3d desiredGaze = (Eigen::Vector3d() << 0.074927 + 0.1, -0.011469, 1.523281 - 0.9).finished(); // eCub
+        Eigen::Vector3d desiredGaze = (Eigen::Vector3d() << 0.074927 + 0.5, -0.011469, 1.523281 - 0.9).finished(); // eCub
         Eigen::Matrix<double, 2, 2> K;                                                      // Gain
 
 	public:
