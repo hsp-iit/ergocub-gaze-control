@@ -90,7 +90,7 @@ bool GazeControl::update_state()
 			Eigen::MatrixXd temp(6,6+this->numJoints);                                  // Temporary storage
 			
 			this->computer.getFrameFreeFloatingJacobian("realsense_rgb_frame",temp);    // Compute camera Jacobian "realsense_rgb_frame"  "eyes_tilt_frame"
-			this->J_R = temp.middleCols(6,this->numJoints - 3);                             // Remove floating base and torso
+			this->J_R = temp.middleCols(6,this->numControlledJoints);                             // Remove floating base and torso
 			
             // Update camera pose
 			this->cameraPose  = iDynTree_to_Eigen(this->computer.getWorldTransform("realsense_rgb_frame"));  // realsense_rgb_frame  "eyes_tilt_frame"
