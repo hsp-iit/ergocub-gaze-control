@@ -311,7 +311,7 @@ void GazeControl::run()
 			// {
 			// 	redundantTask(j) = 0.1*(0.5*(this->jointInterface->positionLimit[j][0] + this->jointInterface->positionLimit[j][1]) - this->q(j));
 			// }
-		    redundantTask(0) = (0.0 - this->q(0)) * 70;
+		    redundantTask(0) = (0.0 - this->q(0)) * 7;
 
 
 			dq = this->solver->least_squares(redundantTask,
