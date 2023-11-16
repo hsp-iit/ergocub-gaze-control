@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)					                            # Minimum cmake requirement
 
-project(gaze-control
+project(ergocub-gaze-control
 	LANGUAGES CXX
     VERSION 0.0.100)
 
@@ -36,11 +36,11 @@ find_package(YARP 3.3.0 REQUIRED)                                               
 include_directories(include)                                                                        # Location of header files
 
 #################################### Executables to be compiled ####################################
-add_executable(gaze_control src/server.cpp include/RPCServerInterface.cpp include/GazeControl.cpp include/JointInterface.cpp include/QPSolver.cpp)
-target_link_libraries(gaze_control Eigen3::Eigen iDynTree::idyntree-high-level ${YARP_LIBRARIES})
+add_executable(ergocub-gaze-control src/server.cpp include/RPCServerInterface.cpp include/GazeControl.cpp include/JointInterface.cpp include/QPSolver.cpp)
+target_link_libraries(ergocub-gaze-control Eigen3::Eigen iDynTree::idyntree-high-level ${YARP_LIBRARIES})
 
 #################################### Executables to be compiled ####################################
 add_executable(test src/test.cpp include/RPCServerInterface.cpp include/GazeControl.cpp include/JointInterface.cpp include/QPSolver.cpp)
 target_link_libraries(test Eigen3::Eigen iDynTree::idyntree-high-level ${YARP_LIBRARIES})
 
-install(TARGETS gaze_control test DESTINATION bin)
+install(TARGETS ergocub-gaze-control test DESTINATION bin)
