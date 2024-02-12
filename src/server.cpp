@@ -3,10 +3,10 @@
 #include <yarp/os/Network.h>
 #include <yarp/os/RpcServer.h>
 #include <yarp/os/Property.h>
-#include "RPCServerInterface.h"
+#include "eCubGazeControllerInterface.h"
 #include "GazeControl.h"
 
-class RPCServer: RPCServerInterface{
+class RPCServer: eCubGazeControllerInterface{
 public:
     GazeControl* gazeController;
 
