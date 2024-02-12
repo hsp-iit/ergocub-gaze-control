@@ -7,21 +7,22 @@
 GazeControl::GazeControl(const std::string &pathToURDF,
                          const std::vector<std::string> &jointList,
                          const std::vector<std::string> &portList,
+						 const int& numControlledJoints,
 						 const double& sample_time):
 						 yarp::os::PeriodicThread(sample_time), 
 						 numJoints(jointList.size()),                                                    // Set number of joints
+						 numControlledJoints(numControlledJoints),
 						 q(Eigen::VectorXd::Zero(this->numJoints)),                                      // Set the size of the position vector
 						 qdot(Eigen::VectorXd::Zero(this->numJoints)),                                   // Set the size of the velocity vector
-						 J(Eigen::MatrixXd::Zero(6,this->numJoints)),                                    // Set the size of the Jacobian matrix
-						 M(Eigen::MatrixXd::Zero(this->numJoints,this->numJoints)),                       // Set the size of the inertia matrix
-						 invM(Eigen::MatrixXd::Zero(this->numJoints,this->numJoints)),                    // Set the size of the inverse inertia
+						 J_R(Eigen::MatrixXd::Zero(6,numControlledJoints)),                              // Set the size of the Jacobian matrix (3 are the torso joint)
+						 J(Eigen::MatrixXd::Zero(2,numControlledJoints)),  
 						 sample_time(sample_time)
 {
     this->jointInterface = new JointInterface(jointList, portList);
     this->solver = new QPSolver();
 
 	// Redundant Task
-	redundantTask.resize(this->numJoints);
+	redundantTask.resize(this->numControlledJoints);
 	redundantTask.setZero();
 
 	// Debugging
@@ -60,7 +61,7 @@ GazeControl::GazeControl(const std::string &pathToURDF,
 	while (not this->update_state()){
 		std::this_thread::sleep_for(std::chrono::milliseconds(int(sample_time * 1000.0)));
 	}
-	this->qRef = this->q;                                                               // Start from current joint position  
+	this->qRef = this->q.head(this->numControlledJoints);                                                               // Start from current joint position  
 };
 
 
@@ -85,22 +86,22 @@ bool GazeControl::update_state()
 		                                tempVelocity,                                       // Joint velocities
 		                                iDynTree::Vector3(std::vector<double> {0.0, 0.0, -9.81}))) // Direction of gravity
 		{
-			// Get the Jacobian for the hands
+			// Get the camera Jacobian
 			Eigen::MatrixXd temp(6,6+this->numJoints);                                  // Temporary storage
 			
-			this->computer.getFrameFreeFloatingJacobian("realsense_rgb_frame",temp);    // Compute camera Jacobian "realsense_rgb_frame"
-			this->J = temp.bottomRightCorner(3,this->numJoints);   // Remove floating base
+			this->computer.getFrameFreeFloatingJacobian("realsense_rgb_frame",temp);    // Compute camera Jacobian "realsense_rgb_frame"  "eyes_tilt_frame"
+			this->J_R = temp.middleCols(6,this->numControlledJoints);                             // Remove floating base and torso
 			
-			// Compute inertia matrix
-			temp.resize(6+this->numJoints,6+this->numJoints);
-			this->computer.getFreeFloatingMassMatrix(temp);                             // Compute inertia matrix for joints & base
-			this->M = temp.block(6,6,this->numJoints,this->numJoints);                  // Remove floating base
-			this->invM = this->M.partialPivLu().inverse();                              // We will need the inverse late
+            // Update camera pose
+			this->cameraPose  = iDynTree_to_Eigen(this->computer.getWorldTransform("realsense_rgb_frame"));  // realsense_rgb_frame  "eyes_tilt_frame"
 			
-	// 		// Update camera pose
-			this->cameraPose  = iDynTree_to_Eigen(this->computer.getWorldTransform("realsense_rgb_frame"));  // realsense_rgb_frame
-			
+			// Camera Rotation Matrix
+			this->M.topLeftCorner(3, 3)     = this->cameraPose.rotation().transpose();
+			this->M.bottomRightCorner(3, 3) = this->cameraPose.rotation().transpose();
 
+			// Compute the visual servoing Jacobian
+			this->J = this->J_I * this->M * this->J_R;
+			
 			return true;
 		}
 		else
@@ -172,32 +173,43 @@ bool GazeControl::set_gaze(const Eigen::Vector3d& desiredGaze)
   ////////////////////////////////////////////////////////////////////////////////////////////////////
  //                         Get the error between a desired and actual pose                        //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-Eigen::Matrix<double,3,1> GazeControl::pose_error(const Eigen::Vector3d &desired,
-                                               	  const Eigen::Isometry3d &actual)
+Eigen::Matrix<double,2,1> GazeControl::pose_error(const Eigen::Vector3d &desired_robot)
 {
-	Eigen::Matrix<double,3,1> error;                                                            // Value to be computed
+	Eigen::Matrix<double,2,1> error;                                                                // Value to be computed
+	Eigen::Matrix<double,2, 1> actual = (Eigen::MatrixXd(2, 1) << this->image_width / 2, this->image_height / 2).finished();
 
-	Eigen::Vector3d desiredSight = this->desiredGaze - this->cameraPose.translation();
+
+	// Change the point frame from robot to camera
+	Eigen::Matrix<double,3, 3> r = this->cameraPose.rotation().transpose();
+	Eigen::Matrix<double,3, 1> t = this->cameraPose.translation();
+	Eigen::Matrix<double,3, 1> desired_camera = r * (desired_robot - t);
+
+	// Project the point to the camera plane
+	Eigen::Matrix<double,2,1> uv = ((this->C * desired_camera) / desired_camera[2]).head(2);
+
+
+	Eigen::Vector3d desiredSight = (this->desiredGaze - this->cameraPose.translation()).normalized();
 	Eigen::Vector3d actualSight = this->cameraPose.rotation().col(2);
 
-	yarp::os::Bottle& debugOutput = this->debugPort.prepare();
-	debugOutput.clear();
+	// yarp::os::Bottle& debugOutput = this->debugPort.prepare();
+	// debugOutput.clear();
 
-	// Create a 3D point
-	yarp::os::Bottle& point = debugOutput.addList();
-	point.addFloat64(desiredSight.normalized()(0));
-	point.addFloat64(desiredSight.normalized()(1));
-	point.addFloat64(desiredSight.normalized()(2));
+	// yarp::os::Bottle& point1 = debugOutput.addList();
+	// yarp::os::Bottle& point2 = debugOutput.addList();
 
-	// Create a vector
-	yarp::os::Bottle& vector = debugOutput.addList();
-	vector.addFloat64(actualSight(0));
-	vector.addFloat64(actualSight(1));
-	vector.addFloat64(actualSight(2));
+	// point1.addFloat64(desiredSight(0));
+	// point1.addFloat64(desiredSight(1));
+	// point1.addFloat64(desiredSight(2));
 
-	this->debugPort.write();
-	error = actualSight.cross(desiredSight);
 	
+	// point2.addFloat64(actualSight(0));
+	// point2.addFloat64(actualSight(1));
+	// point2.addFloat64(actualSight(2));
+
+	// this->debugPort.write();
+
+	error = uv - actual;
+
 	return error;
 }
  
@@ -213,7 +225,7 @@ bool GazeControl::set_cartesian_gains(const double &proportional)
 		return false;
 	}
 	else{
-		this->K = proportional * Eigen::MatrixXd::Identity(3, 3);
+		this->K = proportional * Eigen::MatrixXd::Identity(2, 2);
 		return true;
 	}
 }
@@ -275,12 +287,12 @@ void GazeControl::run()
 	}
 	else
 	{
-		Eigen::VectorXd dq(this->numJoints);                                                        // We want to solve this
-		Eigen::VectorXd q0(this->numJoints);
+		Eigen::VectorXd dq(this->numControlledJoints);                                                        // We want to solve this
+		Eigen::VectorXd q0(this->numControlledJoints);
 		
 		// Calculate instantaneous joint limits
-		Eigen::VectorXd lowerBound(this->numJoints), upperBound(this->numJoints);
-		for(int i = 0; i < this->numJoints; i++)
+		Eigen::VectorXd lowerBound(this->numControlledJoints), upperBound(this->numControlledJoints);
+		for(int i = 0; i < this->numControlledJoints; i++)
 		{
 			double lower, upper;
 			compute_joint_limits(lower,upper,i);
@@ -290,32 +302,17 @@ void GazeControl::run()
 			q0(i) = 0.5*(lower + upper);
 		}
 
-		
 		Eigen::VectorXd dx = track_cartesian_trajectory(elapsedTime);                       // Get the desired Cartesian motion
-		Eigen::MatrixXd W = Eigen::MatrixXd::Identity(this->J.cols(), this->J.cols());
-		// W(0, 0) = 1000.0;
-		// W(1, 1) = 1000.0;
-		W(0, 0) = 0.1;
-		W(1, 1) = 0.1;
-		W(2, 2) = 0.1;
-		W(3, 3) = 0.1;
-
-		// std::cout << dx << std::endl;
+		Eigen::MatrixXd W = Eigen::MatrixXd::Identity(this->J.cols(), this->J.cols()) * 0.1;
 				
 		try // to solve the joint motion
 		{
-			for(int j=0;j<4;j++)
-			{
-				redundantTask(j) = 0.1*(0.5*(this->jointInterface->positionLimit[j][0] + this->jointInterface->positionLimit[j][1]) - this->q(j));
-			}
-			// redundantTask(0) = 1000000000*(0.5*(this->jointInterface->positionLimit[0][0] + this->jointInterface->positionLimit[0][1]) - this->q(0));
-			//redundant_task = ;
-			// dq = this->J.inverse() * dx;
-			// redundantTask(0) = (0.0 - this->q(0));
-			// redundantTask(1) = (0.0 - this->q(1));
-			// redundantTask(3) = (0.0 - this->q(3));
+			// for(int j=0;j<4;j++)
+			// {
+			// 	redundantTask(j) = 0.1*(0.5*(this->jointInterface->positionLimit[j][0] + this->jointInterface->positionLimit[j][1]) - this->q(j));
+			// }
+		    redundantTask(0) = (0.0 - this->q(0)) * 7;
 
-			// std::cout << sqrt((J*J.transpose()).determinant()) << std::endl;
 
 			dq = this->solver->least_squares(redundantTask,
 		                           			 W,
@@ -324,36 +321,50 @@ void GazeControl::run()
 		                                     lowerBound,
 		                                     upperBound,
 		                                     q0);                                                     // Start point
-			// dq = this->J.transpose()*(this->J*this->J.transpose()).partialPivLu().solve(dx);
 		}
 		catch(const char* error_message)
 		{
 			std::cout << error_message << std::endl;
 			dq.setZero();
 		}
-		// std::cout << dq.transpose() * 180.0 / M_PI << std::endl;
-		for(int i = 1; i < this->numJoints; i++){
-			this->qRef[i] += dq[i] * sample_time;
-		}
-	}
+
+		yarp::os::Bottle& debugOutput = this->debugPort.prepare();
+		debugOutput.clear();
+
+		yarp::os::Bottle& point1 = debugOutput.addList();
+		yarp::os::Bottle& point2 = debugOutput.addList();
+
+		point1.addFloat64(this->q(0));
+		point1.addFloat64(this->q(1));
+		point1.addFloat64(this->q(2));
+		point1.addFloat64(this->q(3));
+
+		
+		point2.addFloat64(this->qRef(0));
+		point2.addFloat64(this->qRef(1));
+		point2.addFloat64(this->qRef(2));
+		point2.addFloat64(this->qRef(3));
 
 	this->debugPort.write();
 
-	for(int i = 0; i < this->numJoints; i++){
+		this->qRef += dq * sample_time;
+		
+	}
+
+
+	for(int i = 0; i < this->numControlledJoints; i++){
 		if ((this->qRef[i] * 180.0 / M_PI ) - (this->q[i] * 180.0 / M_PI) > 10){
-			throw std::runtime_error("Requested joint motion for joint " +  std::to_string(i) + "is greater than 5 degrees.");
+			throw std::runtime_error("Requested joint motion for joint " +  std::to_string(i) + "is greater than 10 degrees.");
 		}
 			
 		if ((this->qRef[i] * 180.0 / M_PI ) - (this->q[i] * 180.0 / M_PI) < -10){
-			throw std::runtime_error("Requested joint motion for joint " +  std::to_string(i) + "is greater than 5 degrees.");
+			throw std::runtime_error("Requested joint motion for joint " +  std::to_string(i) + "is greater than 10 degrees.");
 		}
 	}
 
 	this->jointInterface->send_joint_commands(this->qRef);
 
 }
-
-
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////
  //                             Compute instantenous position limits                               //
@@ -372,19 +383,9 @@ bool GazeControl::compute_joint_limits(double &lower, double &upper, const unsig
 	}
 	else
 	{
-		// if (jointNum == 0){
-		// 	lower = -0.1 - this->qRef[jointNum];
-		// 	upper = 0.1 - this->qRef[jointNum];
-		// }
-		// else{
+
 		lower = this->jointInterface->positionLimit[jointNum][0] - this->qRef[jointNum];
 		upper = this->jointInterface->positionLimit[jointNum][1] - this->qRef[jointNum];
-		// }
-		
-		// std::cout << this->jointInterface->positionLimit[jointNum][0] << " - "<< this->qRef[jointNum] << std::endl;
-		// std::cout << lower << std::endl;
-		// std::cout << this->jointInterface->positionLimit[jointNum][1] << " - "<< this->qRef[jointNum] << std::endl;
-		// std::cout << upper << std::endl;
 		
 		if(lower >= upper)
 		{
@@ -401,7 +402,7 @@ bool GazeControl::compute_joint_limits(double &lower, double &upper, const unsig
   ////////////////////////////////////////////////////////////////////////////////////////////////////
  //                        Solve a discrete time step for Cartesian control                        //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-Eigen::Matrix<double,3,1> GazeControl::track_cartesian_trajectory(const double &time)
+Eigen::Matrix<double,2,1> GazeControl::track_cartesian_trajectory(const double &time)
 {
 	// NOTE TO FUTURE SELF:
 	// There are no checks here to see if the trajectory is queried correctly.
@@ -410,7 +411,7 @@ Eigen::Matrix<double,3,1> GazeControl::track_cartesian_trajectory(const double &
 	//this->cameraTrajectory.get_state(pose,vel,acc,time);                                        // Desired state for the left hand
 
 
-	Eigen::Matrix<double,3,1> dx = this->K*pose_error(this->desiredGaze, this->cameraPose);                      // Feedforward + feedback on the left hand
+	Eigen::Matrix<double,2,1> dx = this->K*pose_error(this->desiredGaze);                      // Feedforward + feedback on the left hand
 	// std::cout << "Before clipping " << dx.transpose() << std::endl;q
 	dx = dx.cwiseMin(2);
 	// std::cout << dx.transpose() << std::endl;
