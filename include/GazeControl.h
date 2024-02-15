@@ -46,7 +46,7 @@ class GazeControl: public yarp::os::PeriodicThread
 
         Eigen::Matrix<double,2,1> pose_error(const Eigen::Vector3d &desired);                             
 		 
-        
+        bool m_motors_enabled;
 
     protected:
         // Kinematics & dynamics
@@ -78,9 +78,11 @@ class GazeControl: public yarp::os::PeriodicThread
 		bool update_state();
 
         bool set_cartesian_gains(const double &proportional);
+
         bool set_joint_gains(const double &proportional, const double &derivative);
         
- 
+        void set_motor_actuation(const bool enabled);
+
 		bool set_gaze(const Eigen::Vector3d& desiredGaze);                        // Set the gaze
 
 

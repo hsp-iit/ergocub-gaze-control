@@ -3,7 +3,7 @@
 #include <yarp/os/Network.h>
 #include <yarp/os/RpcServer.h>
 #include <yarp/os/Property.h>
-#include "eCubGazeControllerInterface.h"
+#include "eCubGazeControllerInterface/eCubGazeControllerInterface.h"
 #include "GazeControl.h"
 
 class RPCServer: eCubGazeControllerInterface{
@@ -14,8 +14,7 @@ public:
         this->gazeController = gazeControl;
     };
 
-    bool open()
-    {
+    bool open(){
         this->yarp().attachAsServer(server_port);
         if (!server_port.open("/Components/GazeController")) {
             yError("Could not open ");
@@ -24,8 +23,7 @@ public:
         return true;
     }
 
-    void close()
-    {
+    void close(){
         server_port.close();
     }
 
@@ -40,19 +38,21 @@ public:
         return this->gazeController->set_cartesian_gains(gain);
     }
 
+    bool set_motor_actuation(const bool enabled){
+        
+    }
+
 private:
-yarp::os::RpcServer server_port;
+    yarp::os::RpcServer server_port;
 };
 
-int main(int argc, char *argv[])
-{
-    
+int main(int argc, char *argv[]){
     std::string config_file = "config.ini";
     
     if (argc == 2){
         config_file = argv[1];
     }
-        
+
     yarp::os::Property prop;
     prop.fromConfigFile(config_file);
 
