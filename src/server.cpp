@@ -1,4 +1,7 @@
-
+/*
+ * SPDX-FileCopyrightText: 2023-2023 Istituto Italiano di Tecnologia (IIT)
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 #include <thread>
 #include <yarp/os/Network.h>
 #include <yarp/os/RpcServer.h>
@@ -39,7 +42,8 @@ public:
     }
 
     bool set_motor_actuation(const bool enabled){
-        
+        gazeController->set_motor_actuation(enabled);
+        return true;
     }
 
 private:

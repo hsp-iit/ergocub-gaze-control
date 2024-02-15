@@ -1,3 +1,10 @@
+/*
+ * SPDX-FileCopyrightText: 2023-2023 Istituto Italiano di Tecnologia (IIT)
+ * SPDX-License-Identifier: BSD-3-Clause
+*/
+#ifndef GAZE_CONTROL__H
+#define GAZE_CONTROL__H
+
 #include <iDynTree/KinDynComputations.h>                                                            // Class for invers dynamics calculations                                                                 // Class that holds info on kinematic tree structure
 #include <iDynTree/ModelIO/ModelLoader.h>   
 #include <yarp/os/PeriodicThread.h>                                                                 // Class for timing control loops
@@ -85,8 +92,8 @@ class GazeControl: public yarp::os::PeriodicThread
 
 		bool set_gaze(const Eigen::Vector3d& desiredGaze);                        // Set the gaze
 
-
         void run() override;
         // double getPeriod() override;	
-
 };
+
+#endif

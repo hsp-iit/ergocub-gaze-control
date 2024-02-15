@@ -1,3 +1,7 @@
+/*
+ * SPDX-FileCopyrightText: 2023-2024 Istituto Italiano di Tecnologia (IIT)
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 #include "GazeControl.h"
 #include <iomanip>
 #include <chrono>
