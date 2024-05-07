@@ -1,3 +1,7 @@
+/*
+ * SPDX-FileCopyrightText: 2023-2023 Istituto Italiano di Tecnologia (IIT)
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 // #include <vector>
 // #include <iostream>
 // #include <cmath>
@@ -16,14 +20,14 @@
 #include <yarp/os/Network.h>
 #include <yarp/os/Port.h>
 
-#include "RPCServerInterface.h"
+#include "eCubGazeControllerInterface/eCubGazeControllerInterface.h"
       
 
 int main(int argc, char *argv[])
 {
     yarp::os::Network yarp;        
     yarp::os::Port client_port;
-    RPCServerInterface gaze_controller;
+    eCubGazeControllerInterface gaze_controller;
     
     std::string server_name = "/Components/GazeController";
     std::string client_name = "/BT/GazeController";

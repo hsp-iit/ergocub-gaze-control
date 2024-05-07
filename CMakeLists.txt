@@ -30,17 +30,18 @@ include(AddUninstallTarget)
 find_package(Eigen3 REQUIRED)
 find_package(iDynTree REQUIRED)                                                                     # Links below to iDynTree
 find_package(YARP 3.3.0 REQUIRED)                                                                   # Links below to ${YARP_LIBRARIES}
+find_package(eCubGazeControllerInterface REQUIRED)
 
 #################################### Other files to be built #######################################
 # add_subdirectory(gazebo)                                                                            # Location of other CMakeLists
 include_directories(include)                                                                        # Location of header files
 
 #################################### Executables to be compiled ####################################
-add_executable(ergocub-gaze-control src/server.cpp include/RPCServerInterface.cpp include/GazeControl.cpp include/JointInterface.cpp include/QPSolver.cpp)
-target_link_libraries(ergocub-gaze-control Eigen3::Eigen iDynTree::idyntree-high-level ${YARP_LIBRARIES})
+add_executable(ergocub-gaze-control src/server.cpp include/GazeControl.cpp include/JointInterface.cpp include/QPSolver.cpp)
+target_link_libraries(ergocub-gaze-control eCubGazeControllerInterface::eCubGazeControllerInterface Eigen3::Eigen iDynTree::idyntree-high-level ${YARP_LIBRARIES})
 
 #################################### Executables to be compiled ####################################
-add_executable(test src/test.cpp include/RPCServerInterface.cpp include/GazeControl.cpp include/JointInterface.cpp include/QPSolver.cpp)
-target_link_libraries(test Eigen3::Eigen iDynTree::idyntree-high-level ${YARP_LIBRARIES})
+add_executable(test src/test.cpp include/GazeControl.cpp include/JointInterface.cpp include/QPSolver.cpp)
+target_link_libraries(test eCubGazeControllerInterface::eCubGazeControllerInterface Eigen3::Eigen iDynTree::idyntree-high-level ${YARP_LIBRARIES})
 
-install(TARGETS ergocub-gaze-control test DESTINATION bin)
+install(TARGETS ergocub-gaze-control DESTINATION bin) #test

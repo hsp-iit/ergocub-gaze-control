@@ -1,7 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023-2023 Istituto Italiano di Tecnologia (IIT)
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
     ////////////////////////////////////////////////////////////////////////////////////////////////////
-   //                                                                                                //
   //                     A class for interfacing with the joint motors on the iCub                  //
- //                                                                                                //
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #ifndef JOINTINTERFACE_H_

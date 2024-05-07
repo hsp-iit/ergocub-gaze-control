@@ -1,7 +1,9 @@
+/*
+ * SPDX-FileCopyrightText: 2023-2023 Istituto Italiano di Tecnologia (IIT)
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
     ///////////////////////////////////////////////////////////////////////////////////////////////////
-   //                                                                                               //
   //                    Demonstration of bimanual grasping with the ergoCub robot                  //
- //                                                                                               //
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include <vector>
@@ -18,7 +20,7 @@
 #include "GazeControl.h"
 
 
-// These are used for setting the length of trajetories
+// These are used for setting the length of trajectories
 double longTime =  5.0;
 double shortTime = 2.0;
 
@@ -65,16 +67,16 @@ int main(int argc, char *argv[])
 		// Sample time
 		double sample_time = 0.01;
 		// 
-		yarp::os::Network yarp;                                                             // First connect to the network
+		yarp::os::Network yarp;                                                       // First connect to the network
 		GazeControl gazeControl(pathToURDF, jointList, portList, sample_time);  
 		gazeControl.set_cartesian_gains(1);
 		
 		// Configure communication across the yarp network
-		yarp::os::RpcServer port;                                                           // Create a port for sending / receiving info
-		port.open("/GazeController");                                                              // Open the port with the name '/command'
-		yarp::os::Bottle input;                                                             // Store information from the user input
-		yarp::os::Bottle output;                                                            // Store information to send to the user
-		std::string command;                                                                // Response message, command from user
+		yarp::os::RpcServer port;                                                      // Create a port for sending / receiving info
+		port.open("/GazeController/command");                                                  // Open the port with the name '/command'
+		yarp::os::Bottle input;                                                        // Store information from the user input
+		yarp::os::Bottle output;                                                       // Store information to send to the user
+		std::string command;                                                           // Response message, command from user
 		
 		// Run the control loop
 		bool active = true;

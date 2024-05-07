@@ -1,3 +1,7 @@
+/*
+ * SPDX-FileCopyrightText: 2023-2024 Istituto Italiano di Tecnologia (IIT)
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 #include "GazeControl.h"
 #include <iomanip>
 #include <chrono>
@@ -252,6 +256,11 @@ bool GazeControl::set_joint_gains(const double &proportional, const double &deri
 	}
 }
 
+void GazeControl::set_motor_actuation(const bool enabled)
+{
+	m_motors_enabled = enabled;
+}
+
 // double GazeControl::getPeriod()
 // {
 // 	return this->sample_time;
@@ -351,19 +360,25 @@ void GazeControl::run()
 		
 	}
 
-
+	// Reference displacement error check: if a too wide reference is asked, an error is shown and joint commands are not sent
+	bool error_check = false;	
 	for(int i = 0; i < this->numControlledJoints; i++){
-		if ((this->qRef[i] * 180.0 / M_PI ) - (this->q[i] * 180.0 / M_PI) > 10){
-			throw std::runtime_error("Requested joint motion for joint " +  std::to_string(i) + "is greater than 10 degrees.");
+		if (!error_check && ((this->qRef[i] * 180.0 / M_PI ) - (this->q[i] * 180.0 / M_PI) > 10 )){
+			//throw std::runtime_error("Requested joint motion for joint " +  std::to_string(i) + "is greater than 10 degrees.");
+			yError("Requested joint motion for joint %i is greater than 10 degrees.", i);
+			error_check = true;
 		}
 			
-		if ((this->qRef[i] * 180.0 / M_PI ) - (this->q[i] * 180.0 / M_PI) < -10){
-			throw std::runtime_error("Requested joint motion for joint " +  std::to_string(i) + "is greater than 10 degrees.");
+		if (!error_check && ((this->qRef[i] * 180.0 / M_PI ) - (this->q[i] * 180.0 / M_PI) < -10)){
+			//throw std::runtime_error("Requested joint motion for joint " +  std::to_string(i) + "is greater than 10 degrees.");
+			yError("Requested joint motion for joint %i is greater than 10 degrees.", i);
+			error_check = true;
 		}
 	}
 
-	this->jointInterface->send_joint_commands(this->qRef);
-
+	if (!error_check && m_motors_enabled){
+		this->jointInterface->send_joint_commands(this->qRef);
+	}
 }
 
   ////////////////////////////////////////////////////////////////////////////////////////////////////
