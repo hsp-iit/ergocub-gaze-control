@@ -10,14 +10,23 @@ This repository utilizes:
 
 Follow the links to install each of these.
 
-# Installation
+# Installation on ergoCub robot
+0. ssh to robot torso: `ssh -X ergocub-torso`
 
-1. Clone the repository to your workspace:
+1. Install the rpc interfaces by doing the following commands (dependencies):
+   ```console
+   cd $ROBOT_CODE/hsp && git clone https://github.com/hsp-iit/ergocub-rpc-interfaces
+   cd ergocub-rpc-interfaces/ecub_gaze_controller/cpp_library && mkdir build && cd build
+   cmake -DCMAKE_INSTALL_PREFIX=/usr/local/src/robot/robotology-superbuild/build/install ..
+   make install -j4
+   ```
+
+2. Clone the repository to hsp directory:
 ```
-git clone https://github.com/ergoCub-HSP/ergocub-gaze-control.git
+cd $ROBOT_CODE/hsp && git clone https://github.com/hsp-iit/ergocub-gaze-control.git
 ```
 
-2. Navigate to the directory:
+3. Navigate to the directory:
 ```
 cd ergocub-gaze-control/
 ```
@@ -29,17 +38,18 @@ mkdir build && cd build
 
 4. Then build the repository:
 ```
-cmake ../ && make
+cmake -DCMAKE_INSTALL_PREFIX=/usr/local/src/robot/robotology-superbuild/build/install .. && make install -j4
+```
+
+# How to run on ergoCub
+On the robot torso do:
+```
+ergocub-gaze-controller /usr/local/src/robot/hsp/ergocub-gaze-control/config/ecub_config.ini
 ```
 
 # Running a demo in Gazebo
 
 1. Open a new terminal in Ubuntu with `ctrl + alt + t` and start the YARP server:
-```
-yarpserver
-```
-
-  If this fails to launch, try using:
 ```
 yarpserver --write
 ```
